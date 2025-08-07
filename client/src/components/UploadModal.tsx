@@ -84,7 +84,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
   };
 
   const handleFileUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful.length === 0) return;
+    if (!result.successful || result.successful.length === 0) return;
 
     setIsProcessing(true);
     try {
@@ -236,19 +236,20 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
                 maxFileSize={100 * 1024 * 1024} // 100MB
                 onGetUploadParameters={handleGetUploadParameters}
                 onComplete={handleFileUploadComplete}
-                buttonClassName="w-full"
+                buttonClassName="w-full py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary dark:hover:border-primary transition-colors"
               >
-                <div className="upload-zone">
-                  <div className="mx-auto w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                     <i className="fas fa-cloud-upload-alt text-xl text-primary"></i>
                   </div>
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    Drop files here or click to browse
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    Supports: PDF, DOCX, images, audio, video files (Max 100MB each)
-                  </p>
-                  <div className="text-primary">Choose Files</div>
+                  <div className="text-center">
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Drop files here or click to browse
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Supports: PDF, DOCX, images, audio, video files (Max 100MB each)
+                    </p>
+                  </div>
                 </div>
               </ObjectUploader>
             </div>
