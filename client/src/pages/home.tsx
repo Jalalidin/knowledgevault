@@ -119,41 +119,29 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Simplified background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-64 h-64 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-10"></div>
-        <div className="absolute top-40 right-20 w-64 h-64 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-10"></div>
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       
       <Navigation onSearch={handleSearch} />
       
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Modern Hero Input Area */}
+        {/* Clean Hero Section */}
         <div className="mb-12">
-          <div className="floating-card bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border-0 p-8 backdrop-blur-xl relative overflow-hidden">
-            {/* Subtle overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/3 via-blue-500/3 to-cyan-500/3 rounded-3xl"></div>
-            
-            <div className="relative z-10">
-              <div className="text-center mb-8">
-                <div className="w-20 h-20 bg-gradient-to-br from-purple-600 via-blue-600 to-cyan-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl floating-icon relative">
-                  <i className="fas fa-sparkles text-3xl text-white"></i>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-                    <i className="fas fa-plus text-white text-xs"></i>
-                  </div>
-                </div>
-                <h1 className="text-4xl font-bold gradient-text mb-3">
-                  Build Your Knowledge Universe
-                </h1>
-                <p className="text-xl text-gray-600 dark:text-gray-300 font-medium">
-                  🌟 Drop anything, discover everything
-                </p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-brain text-white text-2xl"></i>
               </div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Knowledge Management
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Upload, organize, and search your content with AI
+              </p>
+            </div>
             
-            {/* Innovative Drop Zone */}
+            {/* Clean Upload Zone */}
             <div className="relative">
-              <div className="min-h-60 border-3 border-dashed border-gray-300 dark:border-gray-600 rounded-3xl p-10 text-center hover:border-purple-500 dark:hover:border-purple-400 transition-all duration-500 bg-gray-50/80 dark:bg-gray-800/80 cursor-pointer group relative overflow-hidden"
+              <div className="min-h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer group bg-gray-50 dark:bg-gray-800/50"
                    onDrop={(e) => {
                      e.preventDefault();
                      const files = Array.from(e.dataTransfer.files);
@@ -165,54 +153,48 @@ export default function Home() {
                    onDragEnter={(e) => e.preventDefault()}
                    onClick={() => setShowUploadModal(true)}
               >
-                {/* Simplified background pattern */}
-                <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity">
-                  <div className="absolute top-4 left-4 w-8 h-8 border-2 border-purple-400 rounded-lg"></div>
-                  <div className="absolute bottom-4 right-4 w-6 h-6 border-2 border-blue-400 rounded-full"></div>
-                </div>
-                
-                <div className="relative z-10 space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex flex-col items-center p-6 rounded-2xl morphism-button group-hover:scale-105 transition-all duration-300">
-                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl group-hover:shadow-2xl transition-shadow">
-                        <i className="fas fa-cloud-upload-alt text-white text-xl"></i>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
+                        <i className="fas fa-file text-white"></i>
                       </div>
-                      <p className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1">📁 Files & Docs</p>
+                      <p className="font-medium text-gray-900 dark:text-white mb-1">Files & Documents</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">PDF, Images, Audio, Video</p>
                     </div>
                     
-                    <div className="flex flex-col items-center p-6 rounded-2xl morphism-button group-hover:scale-105 transition-all duration-300">
-                      <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl group-hover:shadow-2xl transition-shadow">
-                        <i className="fas fa-pen-fancy text-white text-xl"></i>
+                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
+                        <i className="fas fa-edit text-white"></i>
                       </div>
-                      <p className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1">✍️ Text & Notes</p>
+                      <p className="font-medium text-gray-900 dark:text-white mb-1">Text & Notes</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Ideas, articles, thoughts</p>
                     </div>
                     
-                    <div className="flex flex-col items-center p-6 rounded-2xl morphism-button group-hover:scale-105 transition-all duration-300">
-                      <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-xl group-hover:shadow-2xl transition-shadow">
-                        <i className="fas fa-globe-americas text-white text-xl"></i>
+                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
+                        <i className="fas fa-link text-white"></i>
                       </div>
-                      <p className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-1">🌐 Web Content</p>
+                      <p className="font-medium text-gray-900 dark:text-white mb-1">Web Content</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Links, videos, articles</p>
                     </div>
                   </div>
                   
                   <div className="text-center">
-                    <p className="text-2xl font-bold gradient-text mb-2">✨ Drag & Drop Magic ✨</p>
-                    <p className="text-base text-gray-600 dark:text-gray-300">AI will instantly analyze and organize everything for you</p>
+                    <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Drag & Drop Files Here</p>
+                    <p className="text-gray-600 dark:text-gray-300">AI will automatically analyze and organize your content</p>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Advanced Chat Input */}
-            <div className="mt-10 pt-8 border-t border-gray-200 dark:border-gray-600">
+            {/* Clean Text Input */}
+            <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
               <div className="flex gap-4">
-                <div className="flex-1 relative">
+                <div className="flex-1">
                   <Textarea
-                    placeholder="✨ Share your thoughts, paste a link, or describe what you want to save...\n\nI'll use AI to understand and organize it perfectly! 🤖"
-                    className="min-h-32 resize-none bg-white dark:bg-slate-800 border-2 border-gray-200 dark:border-gray-600 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 text-base p-4"
+                    placeholder="Enter text content, paste a link, or describe what you want to save..."
+                    className="min-h-24 resize-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary p-3"
                     value={textContent}
                     onChange={(e) => setTextContent(e.target.value)}
                     onKeyDown={(e) => {
@@ -223,39 +205,34 @@ export default function Home() {
                       }
                     }}
                   />
-                  {/* Floating character count */}
-                  <div className="absolute bottom-3 right-3 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded-lg">
-                    {textContent.length} chars
-                  </div>
                 </div>
                 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <Button 
                     onClick={handleTextSubmit}
                     disabled={!textContent.trim() || isProcessing}
-                    className="bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 py-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 font-semibold"
-                    size="lg"
+                    className="bg-primary hover:bg-primary/90 text-white rounded-lg px-6 py-2"
                   >
                     {isProcessing ? (
                       <div className="flex items-center space-x-2">
-                        <div className="pulse-loader w-4 h-4"></div>
+                        <div className="spinner w-4 h-4"></div>
                         <span>Processing...</span>
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
-                        <i className="fas fa-rocket"></i>
-                        <span>Launch</span>
+                        <i className="fas fa-plus"></i>
+                        <span>Add</span>
                       </div>
                     )}
                   </Button>
                   
                   <Button 
                     onClick={() => setShowUploadModal(true)}
-                    className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-400 text-gray-700 dark:text-gray-200 rounded-2xl px-8 py-4 transform hover:scale-105 transition-all duration-300 font-semibold"
-                    size="lg"
+                    variant="outline"
+                    className="rounded-lg px-6 py-2"
                   >
-                    <i className="fas fa-plus mr-2"></i>
-                    More Options
+                    <i className="fas fa-upload mr-2"></i>
+                    Upload
                   </Button>
                 </div>
               </div>
@@ -267,21 +244,20 @@ export default function Home() {
                     Cmd/Ctrl + Enter to send
                   </span>
                   <span className="flex items-center">
-                    <i className="fas fa-brain mr-1 text-purple-500"></i>
-                    AI-powered organization
+                    <i className="fas fa-brain mr-1 text-primary"></i>
+                    AI-powered
                   </span>
                 </div>
                 
                 <Button 
                   variant="ghost"
                   onClick={() => setShowSearchModal(true)}
-                  className="morphism-button hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium px-4 py-2 rounded-xl"
+                  className="text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg"
                 >
                   <i className="fas fa-search mr-2"></i>
-                  Search Knowledge
+                  Search
                 </Button>
               </div>
-            </div>
             </div>
           </div>
         </div>
@@ -290,36 +266,36 @@ export default function Home() {
         {knowledgeItems && knowledgeItems.length > 0 && (
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
             <div className="flex items-center gap-4">
-              <h2 className="text-3xl font-bold gradient-text">Your Knowledge Universe</h2>
-              <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white border-0 font-semibold px-4 py-2 rounded-full shadow-lg">
-                🎆 {knowledgeItems.length} {knowledgeItems.length === 1 ? 'item' : 'items'}
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Knowledge Base</h2>
+              <Badge variant="secondary" className="font-medium px-3 py-1">
+                {knowledgeItems.length} {knowledgeItems.length === 1 ? 'item' : 'items'}
               </Badge>
             </div>
             
             <div className="flex items-center gap-4">
-              {/* Enhanced Quick Search */}
+              {/* Clean Quick Search */}
               <div className="relative">
                 <Input
                   type="text"
-                  placeholder="🔍 Discover knowledge..."
-                  className="w-72 pl-12 pr-4 py-3 morphism-button border-2 border-gray-200 dark:border-gray-600 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 text-base font-medium"
+                  placeholder="Search knowledge..."
+                  className="w-64 pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                   onFocus={() => setShowSearchModal(true)}
                 />
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                  <i className="fas fa-search text-purple-500 text-lg"></i>
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  <i className="fas fa-search text-gray-400 text-sm"></i>
                 </div>
               </div>
               
-              {/* Modern View Toggle */}
-              <div className="flex morphism-button border border-gray-200 dark:border-gray-600 rounded-2xl p-1 shadow-lg">
+              {/* Clean View Toggle */}
+              <div className="flex bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-1">
                 <Button
                   variant={viewMode === "card" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("card")}
-                  className={`px-4 py-2 rounded-xl transition-all duration-200 ${
+                  className={`px-3 py-1 rounded-md ${
                     viewMode === "card" 
-                      ? "bg-primary text-white shadow-md" 
-                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
+                      ? "bg-primary text-white" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-th mr-2"></i>
@@ -329,10 +305,10 @@ export default function Home() {
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className={`px-4 py-2 rounded-xl transition-all duration-200 ${
+                  className={`px-3 py-1 rounded-md ${
                     viewMode === "list" 
-                      ? "bg-primary text-white shadow-md" 
-                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
+                      ? "bg-primary text-white" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-list mr-2"></i>
@@ -342,10 +318,10 @@ export default function Home() {
                   variant={viewMode === "categories" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("categories")}
-                  className={`px-4 py-2 rounded-xl transition-all duration-200 ${
+                  className={`px-3 py-1 rounded-md ${
                     viewMode === "categories" 
-                      ? "bg-primary text-white shadow-md" 
-                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
+                      ? "bg-primary text-white" 
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-layer-group mr-2"></i>
@@ -360,18 +336,18 @@ export default function Home() {
         {isLoading ? (
           <div className="masonry-grid">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="masonry-item floating-card bg-white dark:bg-slate-800 rounded-3xl p-6 space-y-4 border-0" style={{height: `${200 + Math.random() * 200}px`} as React.CSSProperties}>
+              <div key={i} className="masonry-item bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4" style={{height: `${200 + Math.random() * 200}px`} as React.CSSProperties}>
                 <div className="flex items-center space-x-3">
-                  <Skeleton className="w-12 h-12 rounded-2xl" />
+                  <Skeleton className="w-10 h-10 rounded-lg" />
                   <div className="space-y-2 flex-1">
-                    <Skeleton className="h-5 w-3/4 rounded-lg" />
-                    <Skeleton className="h-4 w-1/2 rounded-lg" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
                   </div>
                 </div>
-                <Skeleton className="h-32 w-full rounded-2xl" />
+                <Skeleton className="h-24 w-full" />
                 <div className="flex space-x-2">
-                  <Skeleton className="h-6 w-16 rounded-full" />
-                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-5 w-12" />
+                  <Skeleton className="h-5 w-16" />
                 </div>
               </div>
             ))}
@@ -399,24 +375,18 @@ export default function Home() {
         ) : (
           <div className="text-center py-16">
             <div className="max-w-lg mx-auto">
-              <div className="relative mb-8">
-                <div className="w-32 h-32 bg-gradient-to-br from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-3xl flex items-center justify-center mx-auto relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-blue-400/20 animate-pulse"></div>
-                  <i className="fas fa-rocket text-6xl text-purple-600 dark:text-purple-400 relative z-10"></i>
-                </div>
-                <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <i className="fas fa-sparkles text-white text-2xl"></i>
-                </div>
+              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-database text-3xl text-gray-400"></i>
               </div>
               
-              <h3 className="text-3xl font-bold gradient-text mb-4">
-                Ready to Launch Your Knowledge? 🚀
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                No Content Yet
               </h3>
-              <p className="text-xl text-gray-600 dark:text-gray-300 mb-6">
-                Drop files, share links, or type thoughts above to get started!
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Start building your knowledge base by adding content above.
               </p>
-              <p className="text-lg text-gray-500 dark:text-gray-400">
-                ✨ AI will organize everything automatically ✨
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Upload files, add text, or paste links to get started.
               </p>
             </div>
           </div>
