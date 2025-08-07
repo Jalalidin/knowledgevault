@@ -272,12 +272,11 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto floating-card border-0 shadow-2xl backdrop-blur-xl bg-white/90 dark:bg-slate-900/90 rounded-3xl">
-        {/* Animated background */}
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto floating-card border-0 shadow-2xl backdrop-blur-xl bg-white dark:bg-slate-900 rounded-3xl">
+        {/* Simplified background */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl">
-          <div className="absolute top-10 left-10 w-32 h-32 bg-purple-300/20 rounded-full blur-2xl animate-blob"></div>
-          <div className="absolute bottom-10 right-10 w-40 h-40 bg-blue-300/20 rounded-full blur-2xl animate-blob animation-delay-2000"></div>
-          <div className="absolute top-1/2 left-1/2 w-36 h-36 bg-cyan-300/20 rounded-full blur-2xl animate-blob animation-delay-4000 transform -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute top-10 left-10 w-32 h-32 bg-purple-300/10 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-10 right-10 w-40 h-40 bg-blue-300/10 rounded-full blur-2xl"></div>
         </div>
         
         <div className="relative z-10">
@@ -308,8 +307,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             <div 
               className={`morphism-button p-6 rounded-3xl cursor-pointer transition-all duration-300 hover:scale-105 border-2 ${
                 activeTab === "file" 
-                  ? "border-purple-500 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 shadow-xl" 
-                  : "border-purple-200 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500"
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20 shadow-xl" 
+                  : "border-gray-200 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500"
               }`}
               onClick={() => setActiveTab("file")}
             >
@@ -335,8 +334,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             <div 
               className={`morphism-button p-6 rounded-3xl cursor-pointer transition-all duration-300 hover:scale-105 border-2 ${
                 activeTab === "text" 
-                  ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 shadow-xl" 
-                  : "border-green-200 dark:border-green-600 hover:border-green-400 dark:hover:border-green-500"
+                  ? "border-green-500 bg-green-50 dark:bg-green-900/20 shadow-xl" 
+                  : "border-gray-200 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500"
               }`}
               onClick={() => setActiveTab("text")}
             >
@@ -362,8 +361,8 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             <div 
               className={`morphism-button p-6 rounded-3xl cursor-pointer transition-all duration-300 hover:scale-105 border-2 ${
                 activeTab === "link" 
-                  ? "border-cyan-500 bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/30 dark:to-blue-900/30 shadow-xl" 
-                  : "border-cyan-200 dark:border-cyan-600 hover:border-cyan-400 dark:hover:border-cyan-500"
+                  ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20 shadow-xl" 
+                  : "border-gray-200 dark:border-gray-600 hover:border-cyan-400 dark:hover:border-cyan-500"
               }`}
               onClick={() => setActiveTab("link")}
             >
@@ -390,7 +389,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
           <Tabs value={activeTab} onValueChange={setActiveTab}>
 
             <TabsContent value="file" className="mt-0">
-              <div className="floating-card rounded-3xl p-8 border-2 border-purple-200 dark:border-purple-600">
+              <div className="floating-card rounded-3xl p-8 border-2 border-gray-200 dark:border-gray-600">
                 <ObjectUploader
                   maxNumberOfFiles={5}
                   maxFileSize={100 * 1024 * 1024} // 100MB
@@ -463,7 +462,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             </TabsContent>
 
             <TabsContent value="text" className="mt-0">
-              <div className="floating-card rounded-3xl p-8 border-2 border-green-200 dark:border-green-600 space-y-8">
+              <div className="floating-card rounded-3xl p-8 border-2 border-gray-200 dark:border-gray-600 space-y-8">
                 <div className="text-center">
                   <div className="relative inline-block mb-6">
                     <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl flex items-center justify-center shadow-2xl floating-icon">
@@ -513,7 +512,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
             </TabsContent>
 
             <TabsContent value="link" className="mt-0">
-              <div className="floating-card rounded-3xl p-8 border-2 border-cyan-200 dark:border-cyan-600 space-y-8">
+              <div className="floating-card rounded-3xl p-8 border-2 border-gray-200 dark:border-gray-600 space-y-8">
                 <div className="text-center">
                   <div className="relative inline-block mb-6">
                     <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-3xl flex items-center justify-center shadow-2xl floating-icon">
