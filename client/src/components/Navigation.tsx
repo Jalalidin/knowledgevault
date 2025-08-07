@@ -41,60 +41,87 @@ export default function Navigation({ onSearch }: NavigationProps) {
   };
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+    <nav className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-slate-700/50 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-20">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
-              <i className="fas fa-brain text-2xl text-primary mr-3"></i>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">KnowledgeVault</h1>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                <i className="fas fa-brain text-white text-lg"></i>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                  KnowledgeVault
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">AI-Powered Knowledge</p>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
             {/* Search */}
-            <form onSubmit={handleSearch} className="relative hidden md:block">
-              <Input
-                type="text"
-                placeholder="Search your knowledge..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-96 pl-10 pr-12"
-              />
-              <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-              >
-                <i className="fas fa-microphone text-gray-400"></i>
-              </Button>
-            </form>
+            <div className="hidden lg:block">
+              <form onSubmit={handleSearch} className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search your knowledge..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-96 pl-12 pr-12 h-12 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200/50 dark:border-slate-600/50 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50"
+                />
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                  <i className="fas fa-search text-gray-400"></i>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600"
+                >
+                  <i className="fas fa-microphone text-gray-400"></i>
+                </Button>
+              </form>
+            </div>
+            
+            {/* Mobile search */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden h-10 w-10 p-0 rounded-xl"
+              onClick={() => onSearch("")}
+            >
+              <i className="fas fa-search text-gray-600 dark:text-gray-400"></i>
+            </Button>
             
             {/* Privacy indicator */}
-            <div className="flex items-center space-x-2 text-sm">
-              <i className="fas fa-shield-alt text-accent"></i>
-              <span className="text-gray-600 dark:text-gray-400 hidden sm:inline">Encrypted</span>
+            <div className="hidden sm:flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-xl border border-green-200/50 dark:border-green-800/50">
+              <i className="fas fa-shield-alt text-green-600 dark:text-green-400 text-sm"></i>
+              <span className="text-green-700 dark:text-green-400 text-sm font-medium">Encrypted</span>
             </div>
             
             {/* User profile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2 p-2">
-                  <Avatar className="w-8 h-8">
+                <Button variant="ghost" className="flex items-center space-x-3 p-2 h-12 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                  <Avatar className="w-9 h-9 ring-2 ring-blue-500/20">
                     <AvatarImage src={(user as any)?.profileImageUrl || ""} />
-                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm font-semibold">
                       {getUserInitials()}
                     </AvatarFallback>
                   </Avatar>
-                  <i className="fas fa-chevron-down text-gray-400"></i>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {(user as any)?.firstName || "User"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Premium</p>
+                  </div>
+                  <i className="fas fa-chevron-down text-gray-400 text-xs"></i>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleLogout}>
-                  <i className="fas fa-sign-out-alt mr-2"></i>
-                  Logout
+              <DropdownMenuContent align="end" className="w-56 mt-2 rounded-xl border-0 shadow-xl bg-white dark:bg-slate-800">
+                <DropdownMenuItem onClick={handleLogout} className="p-3 rounded-lg">
+                  <i className="fas fa-sign-out-alt mr-3 text-gray-400"></i>
+                  <span>Sign out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
