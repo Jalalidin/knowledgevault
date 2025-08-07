@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
 import UploadZone from "@/components/UploadZone";
 import KnowledgeCard from "@/components/KnowledgeCard";
@@ -9,16 +9,41 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { KnowledgeItemWithTags } from "@shared/schema";
 
 export default function Home() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [textContent, setTextContent] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { data: knowledgeItems, isLoading, refetch } = useQuery<KnowledgeItemWithTags[]>({
     queryKey: ["/api/knowledge-items"],
+  });
+
+  const processTextMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const response = await apiRequest("POST", "/api/process-text", { content });
+      return response.json();
+    },
+  });
+
+  const createKnowledgeItemMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/knowledge-items", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-items"] });
+      refetch();
+    },
   });
 
   const handleSearch = (query: string) => {
@@ -31,130 +56,235 @@ export default function Home() {
     setShowUploadModal(false);
   };
 
+  const handleTextSubmit = async () => {
+    if (!textContent.trim()) return;
+
+    // Check if it's a URL
+    const urlRegex = /^(https?:\/\/)([\w-]+\.)+[\w-]+(\/[\w.\/-]*)?/;
+    const isUrl = urlRegex.test(textContent.trim());
+
+    setIsProcessing(true);
+    try {
+      if (isUrl) {
+        // Process as link
+        const response = await apiRequest("POST", "/api/process-link", { url: textContent.trim() });
+        const { processedContent } = await response.json();
+        
+        const knowledgeItemData = {
+          ...processedContent,
+          content: textContent.trim(),
+          type: "link",
+          fileUrl: textContent.trim(),
+          isProcessed: true,
+          tags: processedContent.tags,
+        };
+
+        await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
+        
+        toast({
+          title: "Link saved! 🔗",
+          description: "Your link has been added to your knowledge vault.",
+        });
+      } else {
+        // Process as text
+        const { processedContent } = await processTextMutation.mutateAsync(textContent);
+        
+        const knowledgeItemData = {
+          ...processedContent,
+          content: textContent,
+          type: "text",
+          isProcessed: true,
+          tags: processedContent.tags,
+        };
+
+        await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
+        
+        toast({
+          title: "Text added! 📝",
+          description: "Your text has been processed and added to your vault.",
+        });
+      }
+      
+      setTextContent("");
+    } catch (error) {
+      toast({
+        title: "Oops! Something went wrong",
+        description: "Failed to process your content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       <Navigation onSearch={handleSearch} />
       
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-black bg-opacity-10"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Your Personal <span className="text-yellow-300">Knowledge Vault</span>
-            </h1>
-            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Organize, search, and discover your knowledge with AI-powered intelligence
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                onClick={() => setShowUploadModal(true)}
-                size="lg"
-                className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 text-lg shadow-lg"
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Chat-like Input Area */}
+        <div className="mb-8">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-lg border border-gray-100 dark:border-slate-700 p-8">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <i className="fas fa-brain text-2xl text-white"></i>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                What would you like to add to your vault?
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Drop files, paste text, or share links - I'll organize everything for you
+              </p>
+            </div>
+            
+            {/* Drop Zone */}
+            <div className="relative">
+              <div className="min-h-48 border-2 border-dashed border-gray-200 dark:border-slate-600 rounded-2xl p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/30"
+                   onDrop={(e) => {
+                     e.preventDefault();
+                     // Handle file drop
+                     const files = Array.from(e.dataTransfer.files);
+                     if (files.length > 0) {
+                       setShowUploadModal(true);
+                     }
+                   }}
+                   onDragOver={(e) => e.preventDefault()}
+                   onDragEnter={(e) => e.preventDefault()}
+                   onClick={() => setShowUploadModal(true)}
+                   className="cursor-pointer group"
               >
-                <i className="fas fa-plus mr-2"></i>
-                Add Knowledge
-              </Button>
-              <Button 
-                onClick={() => setShowSearchModal(true)}
-                variant="outline"
-                size="lg"
-                className="border-white text-white hover:bg-white hover:text-blue-600 px-8 py-3 text-lg"
-              >
-                <i className="fas fa-search mr-2"></i>
-                Search Everything
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 -mt-8 relative z-10">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer"
-               onClick={() => setShowUploadModal(true)}>
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4">
-              <i className="fas fa-upload text-white text-lg"></i>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Upload Files</h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Documents, images, audio, and videos</p>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer"
-               onClick={() => setShowUploadModal(true)}>
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-4">
-              <i className="fas fa-edit text-white text-lg"></i>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Add Text</h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Notes, ideas, and written content</p>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-2xl transition-all duration-300 cursor-pointer"
-               onClick={() => setShowUploadModal(true)}>
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-4">
-              <i className="fas fa-link text-white text-lg"></i>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Save Links</h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Websites, articles, and resources</p>
-          </div>
-        </div>
-        
-        {/* Stats & Actions Bar */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 mb-8">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Knowledge Collection</h2>
-                <div className="flex items-center gap-4 mt-2">
-                  <Badge variant="secondary" className="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                    <i className="fas fa-database mr-1"></i>
-                    {knowledgeItems?.length || 0} items
-                  </Badge>
-                  <Badge variant="secondary" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                    <i className="fas fa-shield-alt mr-1"></i>
-                    Encrypted
-                  </Badge>
+                <div className="space-y-6">
+                  <div className="flex justify-center space-x-8">
+                    <div className="flex flex-col items-center p-4 rounded-xl bg-white/50 dark:bg-slate-700/50 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-3 shadow-md">
+                        <i className="fas fa-upload text-white"></i>
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Drop Files</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">or click to browse</p>
+                    </div>
+                    
+                    <div className="flex flex-col items-center p-4 rounded-xl bg-white/50 dark:bg-slate-700/50 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
+                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center mb-3 shadow-md">
+                        <i className="fas fa-keyboard text-white"></i>
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Paste Text</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Ctrl+V anywhere</p>
+                    </div>
+                    
+                    <div className="flex flex-col items-center p-4 rounded-xl bg-white/50 dark:bg-slate-700/50 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mb-3 shadow-md">
+                        <i className="fas fa-link text-white"></i>
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Share Links</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">paste any URL</p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-gray-500 dark:text-gray-400">
+                    <p className="text-lg font-medium mb-2">👋 Just drop it here!</p>
+                    <p className="text-sm">Supports: Documents • Images • Audio • Video • Links • Text</p>
+                  </div>
                 </div>
               </div>
             </div>
             
+            {/* Chat-like Input */}
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-600">
+              <div className="flex gap-3">
+                <Textarea
+                  placeholder="💭 Type your thoughts, paste text, or drop a link here...\n\nOr just drag and drop files above! I'll help organize everything for you."
+                  className="flex-1 min-h-24 resize-none bg-gray-50 dark:bg-slate-700 border-0 rounded-xl focus:ring-2 focus:ring-blue-500/20 text-base"
+                  value={textContent}
+                  onChange={(e) => setTextContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      if (textContent.trim()) {
+                        handleTextSubmit();
+                      }
+                    }
+                  }}
+                />
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    onClick={handleTextSubmit}
+                    disabled={!textContent.trim() || isProcessing}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-3 shadow-md"
+                  >
+                    {isProcessing ? (
+                      <div className="spinner w-4 h-4"></div>
+                    ) : (
+                      <i className="fas fa-arrow-right"></i>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowUploadModal(true)}
+                    className="border border-gray-200 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 rounded-xl px-6 py-3"
+                  >
+                    <i className="fas fa-paperclip"></i>
+                  </Button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center mt-3 text-sm text-gray-500 dark:text-gray-400">
+                <span>📝 Cmd/Ctrl + Enter to send</span>
+                <Button 
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSearchModal(true)}
+                  className="text-xs hover:text-blue-600 dark:hover:text-blue-400"
+                >
+                  <i className="fas fa-search mr-1"></i>
+                  Search vault
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Knowledge Items Header */}
+        {knowledgeItems && knowledgeItems.length > 0 && (
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Your Knowledge</h2>
+              <Badge variant="secondary" className="bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400">
+                {knowledgeItems.length} items
+              </Badge>
+            </div>
+            
             <div className="flex items-center gap-3">
-              {/* Search Input */}
+              {/* Quick Search */}
               <div className="relative">
                 <Input
                   type="text"
                   placeholder="Quick search..."
-                  className="w-64 pl-10 bg-gray-50 dark:bg-slate-700 border-0 focus:ring-2 focus:ring-blue-500"
+                  className="w-64 pl-10 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500/20"
                   onFocus={() => setShowSearchModal(true)}
                 />
                 <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
               </div>
               
-              {/* View toggle */}
-              <div className="flex bg-gray-100 dark:bg-slate-700 rounded-xl p-1">
+              {/* View Toggle */}
+              <div className="flex bg-gray-100 dark:bg-slate-700 rounded-lg p-1">
                 <Button
                   variant={viewMode === "card" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("card")}
-                  className="px-4 py-2 rounded-lg"
+                  className="px-3 py-2 text-sm"
                 >
-                  <i className="fas fa-th mr-2"></i>
-                  Cards
+                  <i className="fas fa-th"></i>
                 </Button>
                 <Button
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className="px-4 py-2 rounded-lg"
+                  className="px-3 py-2 text-sm"
                 >
-                  <i className="fas fa-list mr-2"></i>
-                  List
+                  <i className="fas fa-list"></i>
                 </Button>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Content Grid */}
         {isLoading ? (
@@ -191,34 +321,17 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <i className="fas fa-brain text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"></i>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Ready to build your knowledge vault?
-            </h3>
-            <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-              Start by adding your first piece of knowledge. Upload documents, save interesting links, or write down your thoughts.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                onClick={() => setShowUploadModal(true)}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold shadow-lg"
-              >
-                <i className="fas fa-plus mr-2"></i>
-                Add Your First Item
-              </Button>
-              <Button 
-                variant="outline"
-                size="lg"
-                onClick={() => setShowUploadModal(true)}
-                className="px-8 py-3 text-lg border-2"
-              >
-                <i className="fas fa-lightbulb mr-2"></i>
-                Learn How
-              </Button>
+          <div className="text-center py-12">
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-arrow-up text-3xl text-gray-400 dark:text-slate-400"></i>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Start by dropping something above! ☝️
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Your knowledge items will appear here once you add them.
+              </p>
             </div>
           </div>
         )}
