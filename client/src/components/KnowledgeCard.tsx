@@ -24,6 +24,12 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  
+  // Check if item is being processed
+  const isProcessing = item.metadata && typeof item.metadata === 'object' && 
+    (item.metadata as any).processingState === 'analyzing';
+  const processingFailed = item.metadata && typeof item.metadata === 'object' && 
+    (item.metadata as any).processingState === 'failed';
 
   const getFileIcon = (type: string, mimeType?: string) => {
     switch (type) {
@@ -86,30 +92,58 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
 
   if (viewMode === "list") {
     return (
-      <Card className="knowledge-card">
-        <CardContent className="p-4">
+      <Card className={`knowledge-card floating-card border-0 overflow-hidden transition-all duration-500 hover:shadow-2xl group ${
+        isProcessing ? 'processing-card neon-glow' : ''
+      } ${
+        processingFailed ? 'error-card' : ''
+      }`}>
+        <CardContent className="p-5">
           <div className="flex items-center space-x-4">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-              item.type === "document" ? "bg-red-100 dark:bg-red-900/30" :
-              item.type === "image" ? "bg-yellow-100 dark:bg-yellow-900/30" :
-              item.type === "audio" ? "bg-purple-100 dark:bg-purple-900/30" :
-              item.type === "video" ? "bg-red-100 dark:bg-red-900/30" :
-              item.type === "link" ? "bg-cyan-100 dark:bg-cyan-900/30" :
-              "bg-green-100 dark:bg-green-900/30"
-            }`}>
-              <i className={getFileIcon(item.type, item.mimeType || undefined)}></i>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center backdrop-blur-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 ${
+              item.type === "document" ? "bg-gradient-to-br from-red-400 to-red-600 shadow-red-500/25" :
+              item.type === "image" ? "bg-gradient-to-br from-green-400 to-green-600 shadow-green-500/25" :
+              item.type === "audio" ? "bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/25" :
+              item.type === "video" ? "bg-gradient-to-br from-red-400 to-pink-600 shadow-red-500/25" :
+              item.type === "link" ? "bg-gradient-to-br from-cyan-400 to-blue-600 shadow-cyan-500/25" :
+              "bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-500/25"
+            } shadow-lg`}>
+              <i className={`${getFileIcon(item.type, item.mimeType || undefined)} text-white text-lg`}></i>
             </div>
             
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-gray-900 dark:text-white truncate">
+              <h4 className={`font-semibold text-lg truncate transition-colors duration-300 ${
+                isProcessing ? 'gradient-text' :
+                processingFailed ? 'text-amber-600 dark:text-amber-400' :
+                'text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400'
+              }`}>
                 {item.title}
               </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mt-1 leading-relaxed">
                 {item.summary}
               </p>
-              <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                <span>{formatDistanceToNow(new Date(item.createdAt || new Date()))} ago</span>
-                {item.fileSize && <span>{getFileSize(item.fileSize)}</span>}
+              <div className="flex items-center space-x-4 mt-2 text-xs">
+                <span className="text-gray-500 dark:text-gray-400 flex items-center">
+                  <i className="fas fa-clock mr-1"></i>
+                  {formatDistanceToNow(new Date(item.createdAt || new Date()))} ago
+                </span>
+                {item.fileSize && (
+                  <span className="text-gray-500 dark:text-gray-400 flex items-center">
+                    <i className="fas fa-database mr-1"></i>
+                    {getFileSize(item.fileSize)}
+                  </span>
+                )}
+                {isProcessing && (
+                  <div className="flex items-center space-x-1 text-blue-500">
+                    <div className="pulse-loader"></div>
+                    <span className="text-xs font-medium">Processing</span>
+                  </div>
+                )}
+                {processingFailed && (
+                  <div className="flex items-center space-x-1 text-amber-500">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <span className="text-xs font-medium">Incomplete</span>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -117,14 +151,13 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
               {item.knowledgeItemTags.slice(0, 2).map((itemTag, index) => (
                 <Badge 
                   key={itemTag.tag.id} 
-                  variant="secondary" 
-                  className={`text-xs ${getTagColor(index)}`}
+                  className={`${getTagColor(index)} transform hover:scale-110 transition-transform duration-200`}
                 >
                   {itemTag.tag.name}
                 </Badge>
               ))}
               {item.knowledgeItemTags.length > 2 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="tag-gray transform hover:scale-110 transition-transform duration-200">
                   +{item.knowledgeItemTags.length - 2}
                 </Badge>
               )}
@@ -132,22 +165,22 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <i className="fas fa-ellipsis-h"></i>
+                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 morphism-button rounded-full">
+                  <i className="fas fa-ellipsis-v text-gray-600 dark:text-gray-300"></i>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleView}>
-                  <i className="fas fa-eye mr-2"></i>
-                  View
+              <DropdownMenuContent align="end" className="morphism-button border-0">
+                <DropdownMenuItem onClick={handleView} className="hover:bg-purple-100 dark:hover:bg-purple-900/20">
+                  <i className="fas fa-eye mr-2 text-purple-600"></i>
+                  View Details
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={handleDelete} 
                   disabled={isDeleting}
-                  className="text-destructive"
+                  className="text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
                 >
                   <i className="fas fa-trash mr-2"></i>
-                  Delete
+                  {isDeleting ? 'Deleting...' : 'Delete'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -181,48 +214,48 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
   const thumbnailUrl = getThumbnailUrl();
   const videoInfo = getVideoInfo();
 
-  // Check if item is being processed
-  const isProcessing = item.metadata && typeof item.metadata === 'object' && 
-    (item.metadata as any).processingState === 'analyzing';
-  const processingFailed = item.metadata && typeof item.metadata === 'object' && 
-    (item.metadata as any).processingState === 'failed';
-
   return (
     <>
-      <Card className={`knowledge-card ${isProcessing ? 'processing-card' : ''} ${processingFailed ? 'error-card' : ''}`}>
+      <Card className={`masonry-item knowledge-card floating-card relative overflow-hidden border-0 group transition-all duration-500 hover:shadow-2xl ${
+        isProcessing ? 'processing-card neon-glow' : ''
+      } ${
+        processingFailed ? 'error-card' : ''
+      }`} style={{ animationDelay: `${Math.random() * 2}s` } as React.CSSProperties}>
         {/* Processing overlay for items being analyzed */}
         {isProcessing && (
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl z-10 pointer-events-none">
-            <div className="absolute top-2 right-2">
-              <div className="flex items-center space-x-2 bg-blue-500/90 text-white px-3 py-1 rounded-full text-xs font-medium">
-                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>AI Processing...</span>
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-blue-500/20 backdrop-blur-sm rounded-2xl z-10 pointer-events-none">
+            <div className="absolute top-3 right-3">
+              <div className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg">
+                <div className="pulse-loader w-3 h-3"></div>
+                <span className="gradient-text">✨ AI Processing...</span>
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 rounded-b-xl overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-b-xl animate-pulse"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-2 bg-gray-200/50 dark:bg-gray-700/50 rounded-b-2xl overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-500 rounded-b-2xl">
+                <div className="h-full bg-gradient-to-r from-purple-400 to-blue-400 animate-pulse opacity-75"></div>
+              </div>
             </div>
           </div>
         )}
         
         {/* Error overlay for failed processing */}
         {processingFailed && (
-          <div className="absolute top-2 right-2 z-10">
-            <Badge className="bg-amber-500 text-white border-0 text-xs">
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 text-xs font-semibold px-3 py-1 rounded-full shadow-lg">
               <i className="fas fa-exclamation-triangle mr-1"></i>
-              Processing incomplete
+              Incomplete
             </Badge>
           </div>
         )}
         
         {/* Single thumbnail preview for images and videos */}
         {thumbnailUrl && (item.type === "image" || item.type === "video" || (item.type === "link" && videoInfo)) && (
-          <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group cursor-pointer" onClick={handleView}>
+          <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-t-2xl relative group cursor-pointer overflow-hidden" onClick={handleView}>
             <img 
               src={thumbnailUrl}
               alt={item.title}
-              className={`w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105 ${
-                isProcessing ? 'opacity-75' : ''
+              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:rotate-1 ${
+                isProcessing ? 'opacity-75 blur-sm' : 'group-hover:brightness-110'
               }`}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
@@ -231,24 +264,24 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
             />
             
             {/* Hover overlay with view button */}
-            <div className="absolute inset-0 bg-black bg-opacity-40 rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-blue-900/60 to-transparent rounded-t-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 backdrop-blur-sm">
               <Button
-                variant="secondary"
-                size="lg"
-                className="w-16 h-16 rounded-full p-0 shadow-lg"
+                className="w-20 h-20 rounded-full p-0 morphism-button border-2 border-white/20 transform scale-75 group-hover:scale-100 transition-all duration-300"
               >
-                <i className="fas fa-eye text-xl"></i>
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-xl">
+                  <i className="fas fa-play text-white text-xl transform group-hover:scale-110 transition-transform duration-200"></i>
+                </div>
               </Button>
             </div>
             
             {/* Platform badge */}
             {videoInfo?.platform && (
-              <div className="absolute top-2 left-2">
+              <div className="absolute top-3 left-3">
                 <Badge className={`${
-                  videoInfo.platform === 'youtube' ? 'bg-red-600' :
-                  videoInfo.platform === 'vimeo' ? 'bg-blue-600' :
-                  'bg-black/50'
-                } text-white border-0`}>
+                  videoInfo.platform === 'youtube' ? 'bg-gradient-to-r from-red-600 to-red-700 shadow-red-500/30' :
+                  videoInfo.platform === 'vimeo' ? 'bg-gradient-to-r from-blue-600 to-blue-700 shadow-blue-500/30' :
+                  'bg-gradient-to-r from-gray-800 to-gray-900 shadow-gray-500/30'
+                } text-white border-0 font-semibold px-3 py-1 rounded-full shadow-lg backdrop-blur-sm`}>
                   <i className={`${
                     videoInfo.platform === 'youtube' ? 'fab fa-youtube' :
                     videoInfo.platform === 'vimeo' ? 'fab fa-vimeo' :
@@ -261,8 +294,9 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
             
             {/* Duration badge */}
             {videoInfo?.duration && (
-              <div className="absolute bottom-2 right-2">
-                <Badge className="bg-black/70 text-white border-0 text-xs">
+              <div className="absolute bottom-3 right-3">
+                <Badge className="bg-black/80 text-white border-0 text-xs font-mono font-semibold px-2 py-1 rounded-lg backdrop-blur-sm shadow-lg">
+                  <i className="fas fa-clock mr-1"></i>
                   {videoInfo.duration}
                 </Badge>
               </div>
@@ -272,91 +306,101 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         
         {/* Processing animation for items without thumbnails */}
         {isProcessing && !thumbnailUrl && (
-          <div className="aspect-video bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-t-xl relative flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 mx-auto">
-                <div className="w-full h-full border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Analyzing Content</div>
-                <div className="flex space-x-1 justify-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+          <div className="aspect-video bg-gradient-to-br from-purple-100 via-blue-100 to-cyan-100 dark:from-purple-900/30 dark:via-blue-900/30 dark:to-cyan-900/30 rounded-t-2xl relative flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-cyan-400/20 animate-pulse"></div>
+            <div className="text-center space-y-6 z-10">
+              <div className="w-20 h-20 mx-auto relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-ping opacity-20"></div>
+                <div className="absolute inset-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full animate-spin"></div>
+                <div className="absolute inset-4 bg-white dark:bg-gray-900 rounded-full flex items-center justify-center">
+                  <i className="fas fa-brain text-purple-600 text-lg"></i>
                 </div>
+              </div>
+              <div className="space-y-3">
+                <div className="text-lg font-bold gradient-text">✨ AI Analysis in Progress</div>
+                <div className="flex space-x-2 justify-center">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '200ms'}}></div>
+                  <div className="w-3 h-3 bg-cyan-500 rounded-full animate-bounce" style={{animationDelay: '400ms'}}></div>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Extracting insights & generating summary...</p>
               </div>
             </div>
           </div>
         )}
       
       <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-2 flex-1 min-w-0">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              item.type === "document" ? "bg-red-100 dark:bg-red-900/30" :
-              item.type === "image" ? "bg-yellow-100 dark:bg-yellow-900/30" :
-              item.type === "audio" ? "bg-purple-100 dark:bg-purple-900/30" :
-              item.type === "video" ? "bg-red-100 dark:bg-red-900/30" :
-              item.type === "link" ? "bg-cyan-100 dark:bg-cyan-900/30" :
-              "bg-green-100 dark:bg-green-900/30"
-            }`}>
-              <i className={getFileIcon(item.type, item.mimeType || undefined)}></i>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 ${
+              item.type === "document" ? "bg-gradient-to-br from-red-400 to-red-600 shadow-red-500/25" :
+              item.type === "image" ? "bg-gradient-to-br from-green-400 to-green-600 shadow-green-500/25" :
+              item.type === "audio" ? "bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/25" :
+              item.type === "video" ? "bg-gradient-to-br from-red-400 to-pink-600 shadow-red-500/25" :
+              item.type === "link" ? "bg-gradient-to-br from-cyan-400 to-blue-600 shadow-cyan-500/25" :
+              "bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-500/25"
+            } shadow-lg`}>
+              <i className={`${getFileIcon(item.type, item.mimeType || undefined)} text-white text-lg`}></i>
             </div>
             <div className="min-w-0 flex-1">
-              <span className={`text-sm font-medium block truncate ${
-                isProcessing ? 'text-blue-600 dark:text-blue-400' :
+              <h3 className={`text-lg font-bold block truncate transition-colors duration-300 ${
+                isProcessing ? 'gradient-text' :
                 processingFailed ? 'text-amber-600 dark:text-amber-400' :
-                'text-gray-900 dark:text-white'
+                'text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400'
               }`}>
                 {item.title}
-              </span>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+              </h3>
+              <div className="flex items-center space-x-3 mt-2">
+                <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+                  <i className="fas fa-clock mr-1"></i>
                   {formatDistanceToNow(new Date(item.createdAt || new Date()))} ago
                 </span>
                 {isProcessing && (
-                  <div className="flex items-center space-x-1 text-xs text-blue-500">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Processing</span>
+                  <div className="flex items-center space-x-2 text-sm text-purple-600 dark:text-purple-400">
+                    <div className="pulse-loader w-3 h-3"></div>
+                    <span className="font-medium">Processing</span>
                   </div>
                 )}
                 {processingFailed && (
-                  <div className="flex items-center space-x-1 text-xs text-amber-500">
+                  <div className="flex items-center space-x-1 text-sm text-amber-500">
                     <i className="fas fa-exclamation-triangle"></i>
-                    <span>Incomplete</span>
+                    <span className="font-medium">Incomplete</span>
                   </div>
                 )}
                 {!isProcessing && !processingFailed && (
-                  <i className="fas fa-shield-alt text-accent text-xs" title="Encrypted"></i>
+                  <div className="flex items-center space-x-1 text-sm text-emerald-500">
+                    <i className="fas fa-shield-check"></i>
+                    <span className="font-medium">Secured</span>
+                  </div>
                 )}
               </div>
             </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-                <i className="fas fa-ellipsis-h"></i>
+              <Button variant="ghost" size="sm" className="h-10 w-10 p-0 flex-shrink-0 morphism-button rounded-full">
+                <i className="fas fa-ellipsis-v text-gray-600 dark:text-gray-300"></i>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleView}>
-                <i className="fas fa-eye mr-2"></i>
-                View
+            <DropdownMenuContent align="end" className="morphism-button border-0">
+              <DropdownMenuItem onClick={handleView} className="hover:bg-purple-100 dark:hover:bg-purple-900/20">
+                <i className="fas fa-eye mr-2 text-purple-600"></i>
+                View Details
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={handleDelete} 
                 disabled={isDeleting}
-                className="text-destructive"
+                className="text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20"
               >
                 <i className="fas fa-trash mr-2"></i>
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
         
         {item.summary && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3 leading-relaxed">
+          <p className="text-sm text-gray-700 dark:text-gray-300 mb-4 line-clamp-4 leading-relaxed font-medium">
             {item.summary}
           </p>
         )}
@@ -383,36 +427,41 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         })()}
         
         {item.knowledgeItemTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-4">
             {item.knowledgeItemTags.slice(0, 3).map((itemTag, index) => (
               <Badge 
                 key={itemTag.tag.id} 
-                variant="secondary" 
-                className={`text-xs font-medium ${getTagColor(index)}`}
+                className={`${getTagColor(index)} transform hover:scale-110 transition-all duration-200 cursor-pointer`}
               >
                 {itemTag.tag.name}
               </Badge>
             ))}
             {item.knowledgeItemTags.length > 3 && (
-              <Badge variant="secondary" className="text-xs">
-                +{item.knowledgeItemTags.length - 3}
+              <Badge className="tag-gray transform hover:scale-110 transition-all duration-200">
+                +{item.knowledgeItemTags.length - 3} more
               </Badge>
             )}
           </div>
         )}
         
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
-            {item.type.toUpperCase()}
-            {item.fileSize && ` • ${getFileSize(item.fileSize)}`}
-          </span>
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center space-x-3 text-xs">
+            <span className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg font-mono font-semibold text-gray-600 dark:text-gray-400">
+              {item.type.toUpperCase()}
+            </span>
+            {item.fileSize && (
+              <span className="text-gray-500 dark:text-gray-400 flex items-center">
+                <i className="fas fa-hdd mr-1"></i>
+                {getFileSize(item.fileSize)}
+              </span>
+            )}
+          </div>
           <Button 
-            variant="ghost" 
-            size="sm" 
             onClick={handleView}
-            className="text-primary hover:text-primary/80"
+            className="morphism-button bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 font-semibold px-4 py-2 rounded-full shadow-lg"
           >
-            View →
+            <i className="fas fa-arrow-right mr-2"></i>
+            View Details
           </Button>
         </div>
       </CardContent>
