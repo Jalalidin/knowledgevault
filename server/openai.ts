@@ -225,7 +225,7 @@ Format as JSON: { "summary": "...", "tags": [...], "category": "..." }`
           max_tokens: 400
         });
 
-        let aiResult = {};
+        let aiResult: any = {};
         try {
           const content = aiResponse.choices[0].message.content || '{}';
           // Try to extract JSON from the content
@@ -306,7 +306,7 @@ Format as JSON: { "summary": "...", "tags": [...], "category": "..." }`
           max_tokens: 300
         });
 
-        let aiResult = {};
+        let aiResult: any = {};
         try {
           const content = aiResponse.choices[0].message.content || '{}';
           // Try to extract JSON from the content
