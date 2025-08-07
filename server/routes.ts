@@ -13,6 +13,7 @@ import {
   processDocumentContent,
   transcribeAudio,
   searchKnowledgeBase,
+  processLinkContent,
 } from "./openai";
 import { insertKnowledgeItemSchema } from "@shared/schema";
 import { z } from "zod";
@@ -312,14 +313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid URL" });
       }
 
-      // Extract domain and create basic metadata
-      const domain = new URL(url).hostname;
-      const processedContent = {
-        title: `Link from ${domain}`,
-        summary: `Web link to ${url}`,
-        tags: ["link", "web"],
-        category: "Link",
-      };
+      // Process the link content with AI
+      const processedContent = await processLinkContent(url);
 
       res.json({ processedContent });
     } catch (error) {

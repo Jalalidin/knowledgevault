@@ -2,7 +2,7 @@ import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || ""
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 export interface ProcessedContent {
@@ -134,6 +134,91 @@ export async function processDocumentContent(content: string, fileName?: string)
   } catch (error) {
     console.error("Error processing document content:", error);
     throw new Error("Failed to process document content");
+  }
+}
+
+export async function processLinkContent(url: string): Promise<ProcessedContent> {
+  try {
+    // Fetch the webpage content
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000 // 10 second timeout
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const html = await response.text();
+    
+    // Extract text content from HTML (basic extraction)
+    const textContent = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
+      .replace(/<[^>]*>/g, ' ') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+      .substring(0, 8000); // Limit content length for API
+    
+    // Extract title from HTML
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const htmlTitle = titleMatch ? titleMatch[1].trim() : '';
+    
+    // Parse URL for context
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace('www.', '');
+    
+    const aiResponse = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an AI assistant that analyzes web content for a personal knowledge management system. Analyze the provided webpage content and generate meaningful, specific tags based on the actual content, topic, technology, and context. Focus on creating useful, searchable tags that describe what this content is about. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
+        },
+        {
+          role: "user",
+          content: `Analyze this webpage content and provide structured metadata. Generate specific, contextual tags based on the actual content.
+
+URL: ${url}
+Domain: ${domain}
+HTML Title: ${htmlTitle}
+
+Content:
+${textContent}`
+        }
+      ],
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(aiResponse.choices[0].message.content || "{}");
+    
+    return {
+      title: result.title || htmlTitle || `Content from ${domain}`,
+      summary: result.summary || `Web content from ${url}`,
+      tags: Array.isArray(result.tags) ? result.tags : ["web", domain],
+      category: result.category || "Web Content"
+    };
+  } catch (error) {
+    console.error("Error processing link content:", error);
+    // Fallback to basic processing
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace('www.', '');
+    
+    // Generate better fallback tags based on domain
+    let fallbackTags = ["web", domain];
+    if (domain.includes('github')) fallbackTags.push('code', 'repository', 'programming');
+    if (domain.includes('youtube')) fallbackTags.push('video', 'media');
+    if (domain.includes('wikipedia')) fallbackTags.push('reference', 'knowledge');
+    if (domain.includes('stackoverflow')) fallbackTags.push('programming', 'q&a', 'development');
+    
+    return {
+      title: `Content from ${domain}`,
+      summary: `Web link to ${url}`,
+      tags: fallbackTags,
+      category: "Web Content"
+    };
   }
 }
 
