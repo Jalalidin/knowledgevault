@@ -200,30 +200,41 @@ export async function processVideoLink(url: string): Promise<ProcessedContent> {
                             html.match(/"ownerChannelName"[^}]*"simpleText"[^}]*"([^"]+)"/i);
         const channel = channelMatch ? channelMatch[1] : '';
         
-        // Generate AI summary based on extracted metadata
+        // Generate AI summary using DeepSeek Chat for better summarization
         const aiResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
+          model: "deepseek-chat",
           messages: [
             {
-              role: "system",
-              content: "You are an AI assistant that creates concise, informative summaries for video content in a personal knowledge management system. Based on the video title, description, and channel, generate a helpful summary that describes what the video is about, its main topics, and why someone might want to watch it. Keep it concise but informative. Respond with JSON in this format: { 'summary': string, 'tags': string[], 'category': string }"
-            },
-            {
               role: "user",
-              content: `Create a summary for this YouTube video:
+              content: `Create a detailed, helpful summary for this YouTube video that explains what the content covers and why someone might want to watch it.
 
-Title: ${title}
-Channel: ${channel}
-Description: ${description}
-URL: ${url}
+Video Details:
+- Title: ${title}
+- Channel: ${channel || 'Unknown'}
+- Description: ${description || 'No description available'}
+- URL: ${url}
 
-Generate a summary that captures the main topic and value of this video content.`
+Please provide:
+1. A comprehensive summary (2-3 sentences) covering the main content, key topics, and value proposition
+2. 5-8 relevant, specific tags based on the actual content (include 'video', 'youtube')
+3. An appropriate category name
+
+Format as JSON: { "summary": "...", "tags": [...], "category": "..." }`
             }
           ],
-          response_format: { type: "json_object" },
+          max_tokens: 400
         });
 
-        const aiResult = JSON.parse(aiResponse.choices[0].message.content || '{}');
+        let aiResult = {};
+        try {
+          const content = aiResponse.choices[0].message.content || '{}';
+          // Try to extract JSON from the content
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          aiResult = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+        } catch (error) {
+          console.log('Error parsing YouTube AI response, using fallback');
+          aiResult = {};
+        }
         
         return {
           title,
@@ -271,27 +282,40 @@ Generate a summary that captures the main topic and value of this video content.
         const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
         const description = descMatch ? descMatch[1] : '';
         
-        // Generate AI summary
+        // Generate AI summary using DeepSeek Chat
         const aiResponse = await openai.chat.completions.create({
-          model: "gpt-4o",
+          model: "deepseek-chat",
           messages: [
             {
-              role: "system",
-              content: "You are an AI assistant that creates concise, informative summaries for video content. Based on the video title and description, generate a helpful summary. Respond with JSON in this format: { 'summary': string, 'tags': string[], 'category': string }"
-            },
-            {
               role: "user",
-              content: `Create a summary for this Vimeo video:
+              content: `Create a detailed, helpful summary for this Vimeo video that explains what the content covers and why someone might want to watch it.
 
-Title: ${title}
-Description: ${description}
-URL: ${url}`
+Video Details:
+- Title: ${title}
+- Description: ${description || 'No description available'}
+- URL: ${url}
+
+Please provide:
+1. A comprehensive summary (2-3 sentences) covering the main content and value
+2. 5-8 relevant, specific tags (include 'video', 'vimeo')
+3. An appropriate category name
+
+Format as JSON: { "summary": "...", "tags": [...], "category": "..." }`
             }
           ],
-          response_format: { type: "json_object" },
+          max_tokens: 300
         });
 
-        const aiResult = JSON.parse(aiResponse.choices[0].message.content || '{}');
+        let aiResult = {};
+        try {
+          const content = aiResponse.choices[0].message.content || '{}';
+          // Try to extract JSON from the content
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          aiResult = JSON.parse(jsonMatch ? jsonMatch[0] : '{}');
+        } catch (error) {
+          console.log('Error parsing Vimeo AI response, using fallback');
+          aiResult = {};
+        }
         
         return {
           title,
