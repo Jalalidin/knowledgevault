@@ -17,7 +17,8 @@ import type { KnowledgeItemWithTags } from "@shared/schema";
 export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [viewMode, setViewMode] = useState<"card" | "list" | "categories">("card");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -281,6 +282,14 @@ export default function Home() {
                 >
                   <i className="fas fa-list"></i>
                 </Button>
+                <Button
+                  variant={viewMode === "categories" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("categories")}
+                  className="px-3 py-2 text-sm"
+                >
+                  <i className="fas fa-folder"></i>
+                </Button>
               </div>
             </div>
           </div>
@@ -307,19 +316,28 @@ export default function Home() {
             ))}
           </div>
         ) : knowledgeItems && knowledgeItems.length > 0 ? (
-          <div className={viewMode === "card" 
-            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 knowledge-grid" 
-            : "space-y-6"
-          }>
-            {knowledgeItems.map((item) => (
-              <KnowledgeCard 
-                key={item.id} 
-                item={item} 
-                viewMode={viewMode}
-                onUpdate={refetch}
-              />
-            ))}
-          </div>
+          viewMode === "categories" ? (
+            <CategorizedView 
+              items={knowledgeItems}
+              expandedCategories={expandedCategories}
+              setExpandedCategories={setExpandedCategories}
+              onUpdate={refetch}
+            />
+          ) : (
+            <div className={viewMode === "card" 
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 knowledge-grid" 
+              : "space-y-6"
+            }>
+              {knowledgeItems.map((item) => (
+                <KnowledgeCard 
+                  key={item.id} 
+                  item={item} 
+                  viewMode={viewMode}
+                  onUpdate={refetch}
+                />
+              ))}
+            </div>
+          )
         ) : (
           <div className="text-center py-12">
             <div className="max-w-md mx-auto">
@@ -349,6 +367,231 @@ export default function Home() {
           onSuccess={handleUploadSuccess}
         />
       </div>
+    </div>
+  );
+}
+
+// Categorized View Component
+interface CategorizedViewProps {
+  items: KnowledgeItemWithTags[];
+  expandedCategories: Set<string>;
+  setExpandedCategories: (categories: Set<string>) => void;
+  onUpdate: () => void;
+}
+
+function CategorizedView({ items, expandedCategories, setExpandedCategories, onUpdate }: CategorizedViewProps) {
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  // Group items by content type
+  const itemsByType = items.reduce((acc, item) => {
+    const type = item.type;
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(item);
+    return acc;
+  }, {} as Record<string, KnowledgeItemWithTags[]>);
+
+  // Group items by category
+  const itemsByCategory = items.reduce((acc, item) => {
+    const category = item.category || 'Uncategorized';
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(item);
+    return acc;
+  }, {} as Record<string, KnowledgeItemWithTags[]>);
+
+  // Group items by tags
+  const itemsByTag = items.reduce((acc, item) => {
+    item.knowledgeItemTags.forEach(tagItem => {
+      const tagName = tagItem.tag.name;
+      if (!acc[tagName]) acc[tagName] = [];
+      acc[tagName].push(item);
+    });
+    return acc;
+  }, {} as Record<string, KnowledgeItemWithTags[]>);
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'document': return 'fas fa-file-alt text-blue-600';
+      case 'image': return 'fas fa-image text-green-600';
+      case 'audio': return 'fas fa-headphones text-purple-600';
+      case 'video': return 'fas fa-video text-red-600';
+      case 'link': return 'fas fa-link text-cyan-600';
+      case 'text': return 'fas fa-sticky-note text-yellow-600';
+      default: return 'fas fa-file text-gray-600';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'document': return 'Documents';
+      case 'image': return 'Images';
+      case 'audio': return 'Audio';
+      case 'video': return 'Videos';
+      case 'link': return 'Links';
+      case 'text': return 'Notes';
+      default: return 'Other';
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Content Types Section */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+          <i className="fas fa-layer-group mr-2 text-blue-600"></i>
+          By Content Type
+        </h3>
+        <div className="space-y-4">
+          {Object.entries(itemsByType).map(([type, typeItems]) => {
+            const categoryKey = `type-${type}`;
+            const isExpanded = expandedCategories.has(categoryKey);
+            
+            return (
+              <div key={type} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleCategory(categoryKey)}
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center space-x-3">
+                    <i className={`${getTypeIcon(type)} text-lg`}></i>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {getTypeLabel(type)}
+                    </span>
+                    <Badge variant="secondary" className="bg-gray-200 dark:bg-gray-600">
+                      {typeItems.length}
+                    </Badge>
+                  </div>
+                  <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-gray-400`}></i>
+                </button>
+                
+                {isExpanded && (
+                  <div className="p-4 bg-white dark:bg-gray-900">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {typeItems.map((item) => (
+                        <KnowledgeCard 
+                          key={item.id} 
+                          item={item} 
+                          viewMode="card"
+                          onUpdate={onUpdate}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Categories Section */}
+      {Object.keys(itemsByCategory).length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <i className="fas fa-folder mr-2 text-orange-600"></i>
+            By Category
+          </h3>
+          <div className="space-y-4">
+            {Object.entries(itemsByCategory).map(([category, categoryItems]) => {
+              const categoryKey = `category-${category}`;
+              const isExpanded = expandedCategories.has(categoryKey);
+              
+              return (
+                <div key={category} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => toggleCategory(categoryKey)}
+                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <i className="fas fa-folder text-lg text-orange-600"></i>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {category}
+                      </span>
+                      <Badge variant="secondary" className="bg-gray-200 dark:bg-gray-600">
+                        {categoryItems.length}
+                      </Badge>
+                    </div>
+                    <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-gray-400`}></i>
+                  </button>
+                  
+                  {isExpanded && (
+                    <div className="p-4 bg-white dark:bg-gray-900">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {categoryItems.map((item) => (
+                          <KnowledgeCard 
+                            key={item.id} 
+                            item={item} 
+                            viewMode="card"
+                            onUpdate={onUpdate}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tags Section */}
+      {Object.keys(itemsByTag).length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <i className="fas fa-tags mr-2 text-purple-600"></i>
+            By Tags
+          </h3>
+          <div className="space-y-4">
+            {Object.entries(itemsByTag).map(([tag, tagItems]) => {
+              const tagKey = `tag-${tag}`;
+              const isExpanded = expandedCategories.has(tagKey);
+              
+              return (
+                <div key={tag} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => toggleCategory(tagKey)}
+                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <i className="fas fa-tag text-lg text-purple-600"></i>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        #{tag}
+                      </span>
+                      <Badge variant="secondary" className="bg-gray-200 dark:bg-gray-600">
+                        {tagItems.length}
+                      </Badge>
+                    </div>
+                    <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-gray-400`}></i>
+                  </button>
+                  
+                  {isExpanded && (
+                    <div className="p-4 bg-white dark:bg-gray-900">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {tagItems.map((item) => (
+                          <KnowledgeCard 
+                            key={item.id} 
+                            item={item} 
+                            viewMode="card"
+                            onUpdate={onUpdate}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
