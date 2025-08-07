@@ -159,7 +159,7 @@ export async function processDocumentContent(content: string, fileName?: string)
   }
 }
 
-// Enhanced video link processing
+// Enhanced video link processing with AI-generated summaries
 export async function processVideoLink(url: string): Promise<ProcessedContent> {
   const urlObj = new URL(url);
   const domain = urlObj.hostname.replace('www.', '');
@@ -177,7 +177,7 @@ export async function processVideoLink(url: string): Promise<ProcessedContent> {
       const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       
       try {
-        // Try to fetch video title and description from YouTube
+        // Fetch video page to extract metadata
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -185,29 +185,69 @@ export async function processVideoLink(url: string): Promise<ProcessedContent> {
         });
         
         const html = await response.text();
+        
+        // Extract title
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
         const title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : 'YouTube Video';
         
+        // Extract description from meta tags
+        const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i) ||
+                         html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
+        const description = descMatch ? descMatch[1] : '';
+        
+        // Extract channel name
+        const channelMatch = html.match(/"author"[^}]*"name"[^}]*"text"[^}]*"simpleText"[^}]*"([^"]+)"/i) ||
+                            html.match(/"ownerChannelName"[^}]*"simpleText"[^}]*"([^"]+)"/i);
+        const channel = channelMatch ? channelMatch[1] : '';
+        
+        // Generate AI summary based on extracted metadata
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an AI assistant that creates concise, informative summaries for video content in a personal knowledge management system. Based on the video title, description, and channel, generate a helpful summary that describes what the video is about, its main topics, and why someone might want to watch it. Keep it concise but informative. Respond with JSON in this format: { 'summary': string, 'tags': string[], 'category': string }"
+            },
+            {
+              role: "user",
+              content: `Create a summary for this YouTube video:
+
+Title: ${title}
+Channel: ${channel}
+Description: ${description}
+URL: ${url}
+
+Generate a summary that captures the main topic and value of this video content.`
+            }
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        const aiResult = JSON.parse(aiResponse.choices[0].message.content || '{}');
+        
         return {
           title,
-          summary: `YouTube video: ${title}`,
-          tags: ['video', 'youtube', 'media', 'entertainment'],
-          category: 'Video Content',
+          summary: aiResult.summary || `YouTube video by ${channel}: ${title}`,
+          tags: Array.isArray(aiResult.tags) ? [...aiResult.tags, 'video', 'youtube'] : ['video', 'youtube', 'media'],
+          category: aiResult.category || 'Video Content',
           thumbnailUrl,
           metadata: {
             videoId,
             platform: 'youtube',
-            originalUrl: url
+            channel,
+            originalUrl: url,
+            description: description.substring(0, 500) // Store first 500 chars
           }
         };
       } catch (error) {
+        console.error('Error processing YouTube video:', error);
         return {
           title: 'YouTube Video',
-          summary: `YouTube video from ${url}`,
+          summary: `YouTube video content from ${url}. Unable to analyze content due to processing limitations.`,
           tags: ['video', 'youtube', 'media'],
           category: 'Video Content',
           thumbnailUrl,
-          metadata: { videoId, platform: 'youtube' }
+          metadata: { videoId, platform: 'youtube', originalUrl: url }
         };
       }
     }
@@ -222,27 +262,57 @@ export async function processVideoLink(url: string): Promise<ProcessedContent> {
       try {
         const response = await fetch(url);
         const html = await response.text();
+        
+        // Extract title
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
         const title = titleMatch ? titleMatch[1].replace(' on Vimeo', '').trim() : 'Vimeo Video';
         
+        // Extract description
+        const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+        const description = descMatch ? descMatch[1] : '';
+        
+        // Generate AI summary
+        const aiResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an AI assistant that creates concise, informative summaries for video content. Based on the video title and description, generate a helpful summary. Respond with JSON in this format: { 'summary': string, 'tags': string[], 'category': string }"
+            },
+            {
+              role: "user",
+              content: `Create a summary for this Vimeo video:
+
+Title: ${title}
+Description: ${description}
+URL: ${url}`
+            }
+          ],
+          response_format: { type: "json_object" },
+        });
+
+        const aiResult = JSON.parse(aiResponse.choices[0].message.content || '{}');
+        
         return {
           title,
-          summary: `Vimeo video: ${title}`,
-          tags: ['video', 'vimeo', 'media', 'creative'],
-          category: 'Video Content',
+          summary: aiResult.summary || `Vimeo video: ${title}`,
+          tags: Array.isArray(aiResult.tags) ? [...aiResult.tags, 'video', 'vimeo'] : ['video', 'vimeo', 'media'],
+          category: aiResult.category || 'Video Content',
           metadata: {
             videoId,
             platform: 'vimeo',
-            originalUrl: url
+            originalUrl: url,
+            description: description.substring(0, 500)
           }
         };
       } catch (error) {
+        console.error('Error processing Vimeo video:', error);
         return {
           title: 'Vimeo Video',
-          summary: `Vimeo video from ${url}`,
-          tags: ['video', 'vimeo', 'media'],
+          summary: `Vimeo video content from ${url}. Creative video content hosted on Vimeo platform.`,
+          tags: ['video', 'vimeo', 'media', 'creative'],
           category: 'Video Content',
-          metadata: { videoId, platform: 'vimeo' }
+          metadata: { videoId, platform: 'vimeo', originalUrl: url }
         };
       }
     }
