@@ -171,39 +171,86 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
     }
 
     setIsProcessing(true);
+    
+    // Determine content type based on URL
+    let contentType = "link";
+    const urlLower = linkUrl.toLowerCase();
+    if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be') || urlLower.includes('vimeo.com')) {
+      contentType = "video";
+    }
+    
     try {
-      const { processedContent } = await processLinkMutation.mutateAsync(linkUrl);
-      
-      // Determine content type based on URL or processed content
-      let contentType = "link";
-      const urlLower = linkUrl.toLowerCase();
-      if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be') || urlLower.includes('vimeo.com')) {
-        contentType = "video";
-      }
-      
-      const knowledgeItemData = {
-        ...processedContent,
+      // Step 1: Create item immediately with basic info and processing state
+      const initialItemData = {
+        title: contentType === "video" ? "🎬 Analyzing video content..." : "🔗 Processing link...",
+        summary: "AI is analyzing this content and will provide a detailed summary shortly.",
         content: linkUrl,
         type: contentType,
         fileUrl: linkUrl,
-        isProcessed: true,
-        tags: processedContent.tags,
-        // Include enhanced metadata
-        thumbnailUrl: processedContent.thumbnailUrl,
-        metadata: processedContent.metadata || {},
+        isProcessed: false,
+        tags: [contentType === "video" ? "video" : "web", "processing"],
+        metadata: {
+          processingState: "analyzing",
+          originalUrl: linkUrl
+        }
       };
 
-      await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
+      const createdItem = await createKnowledgeItemMutation.mutateAsync(initialItemData);
       
-      const contentTypeDisplay = contentType === "video" ? "video link" : "link";
+      // Show success immediately
       toast({
-        title: `${contentTypeDisplay.charAt(0).toUpperCase() + contentTypeDisplay.slice(1)} added`,
-        description: `Your ${contentTypeDisplay} has been analyzed and added to your knowledge base.`,
+        title: "✨ Content added!",
+        description: `Your ${contentType === "video" ? "video" : "link"} is being analyzed by AI. You'll see the summary update in real-time.`,
       });
+      
+      // Close modal immediately for better UX
+      handleClose();
+      
+      // Step 2: Process in background and update the item
+      try {
+        const { processedContent } = await processLinkMutation.mutateAsync(linkUrl);
+        
+        // Update the item with processed content
+        const updatedItemData = {
+          ...processedContent,
+          content: linkUrl,
+          type: contentType,
+          fileUrl: linkUrl,
+          isProcessed: true,
+          tags: processedContent.tags,
+          thumbnailUrl: processedContent.thumbnailUrl,
+          metadata: {
+            ...processedContent.metadata,
+            processingState: "completed",
+            originalUrl: linkUrl
+          },
+        };
+
+        // Update the created item
+        await apiRequest("PUT", `/api/knowledge-items/${createdItem.id}`, updatedItemData);
+        
+        // Refresh the list to show updated content
+        queryClient.invalidateQueries({ queryKey: ["/api/knowledge-items"] });
+        
+      } catch (processingError) {
+        // If processing fails, update item to show error state
+        await apiRequest("PUT", `/api/knowledge-items/${createdItem.id}`, {
+          title: "⚠️ Processing incomplete",
+          summary: "Unable to fully analyze this content. You can still access the original link.",
+          isProcessed: false,
+          metadata: {
+            processingState: "failed",
+            originalUrl: linkUrl,
+            error: "Failed to process content"
+          }
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/knowledge-items"] });
+      }
+      
     } catch (error) {
       toast({
-        title: "Processing failed",
-        description: "Failed to process link. It may be due to rate limiting, please try again in a moment.",
+        title: "Failed to add content",
+        description: "Please try again in a moment.",
         variant: "destructive",
       });
     } finally {

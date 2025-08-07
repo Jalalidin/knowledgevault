@@ -181,16 +181,49 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
   const thumbnailUrl = getThumbnailUrl();
   const videoInfo = getVideoInfo();
 
+  // Check if item is being processed
+  const isProcessing = item.metadata && typeof item.metadata === 'object' && 
+    (item.metadata as any).processingState === 'analyzing';
+  const processingFailed = item.metadata && typeof item.metadata === 'object' && 
+    (item.metadata as any).processingState === 'failed';
+
   return (
     <>
-      <Card className="knowledge-card">
+      <Card className={`knowledge-card ${isProcessing ? 'processing-card' : ''} ${processingFailed ? 'error-card' : ''}`}>
+        {/* Processing overlay for items being analyzed */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl z-10 pointer-events-none">
+            <div className="absolute top-2 right-2">
+              <div className="flex items-center space-x-2 bg-blue-500/90 text-white px-3 py-1 rounded-full text-xs font-medium">
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>AI Processing...</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 rounded-b-xl overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-b-xl animate-pulse"></div>
+            </div>
+          </div>
+        )}
+        
+        {/* Error overlay for failed processing */}
+        {processingFailed && (
+          <div className="absolute top-2 right-2 z-10">
+            <Badge className="bg-amber-500 text-white border-0 text-xs">
+              <i className="fas fa-exclamation-triangle mr-1"></i>
+              Processing incomplete
+            </Badge>
+          </div>
+        )}
+        
         {/* Single thumbnail preview for images and videos */}
         {thumbnailUrl && (item.type === "image" || item.type === "video" || (item.type === "link" && videoInfo)) && (
           <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group cursor-pointer" onClick={handleView}>
             <img 
               src={thumbnailUrl}
               alt={item.title}
-              className="w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105"
+              className={`w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105 ${
+                isProcessing ? 'opacity-75' : ''
+              }`}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = "none";
@@ -236,6 +269,25 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
             )}
           </div>
         )}
+        
+        {/* Processing animation for items without thumbnails */}
+        {isProcessing && !thumbnailUrl && (
+          <div className="aspect-video bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-t-xl relative flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto">
+                <div className="w-full h-full border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Analyzing Content</div>
+                <div className="flex space-x-1 justify-center">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-3">
@@ -251,14 +303,32 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
               <i className={getFileIcon(item.type, item.mimeType || undefined)}></i>
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-sm font-medium text-gray-900 dark:text-white block truncate">
+              <span className={`text-sm font-medium block truncate ${
+                isProcessing ? 'text-blue-600 dark:text-blue-400' :
+                processingFailed ? 'text-amber-600 dark:text-amber-400' :
+                'text-gray-900 dark:text-white'
+              }`}>
                 {item.title}
               </span>
               <div className="flex items-center space-x-2 mt-1">
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {formatDistanceToNow(new Date(item.createdAt || new Date()))} ago
                 </span>
-                <i className="fas fa-shield-alt text-accent text-xs" title="Encrypted"></i>
+                {isProcessing && (
+                  <div className="flex items-center space-x-1 text-xs text-blue-500">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span>Processing</span>
+                  </div>
+                )}
+                {processingFailed && (
+                  <div className="flex items-center space-x-1 text-xs text-amber-500">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <span>Incomplete</span>
+                  </div>
+                )}
+                {!isProcessing && !processingFailed && (
+                  <i className="fas fa-shield-alt text-accent text-xs" title="Encrypted"></i>
+                )}
               </div>
             </div>
           </div>
