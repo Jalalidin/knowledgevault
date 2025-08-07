@@ -140,7 +140,7 @@ export default function Home() {
             
             {/* Drop Zone */}
             <div className="relative">
-              <div className="min-h-48 border-2 border-dashed border-gray-200 dark:border-slate-600 rounded-2xl p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/30"
+              <div className="min-h-48 border-2 border-dashed border-gray-200 dark:border-slate-600 rounded-2xl p-8 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-blue-50/30 dark:from-slate-700/50 dark:to-slate-600/30 cursor-pointer group"
                    onDrop={(e) => {
                      e.preventDefault();
                      // Handle file drop
@@ -152,7 +152,6 @@ export default function Home() {
                    onDragOver={(e) => e.preventDefault()}
                    onDragEnter={(e) => e.preventDefault()}
                    onClick={() => setShowUploadModal(true)}
-                   className="cursor-pointer group"
               >
                 <div className="space-y-6">
                   <div className="flex justify-center space-x-8">
@@ -398,9 +397,31 @@ function CategorizedView({ items, expandedCategories, setExpandedCategories, onU
     return acc;
   }, {} as Record<string, KnowledgeItemWithTags[]>);
 
-  // Group items by category
+  // Group items by category (extracted from metadata or default based on type)
   const itemsByCategory = items.reduce((acc, item) => {
-    const category = item.category || 'Uncategorized';
+    let category = 'Uncategorized';
+    
+    // Try to get category from metadata first
+    if (item.metadata && typeof item.metadata === 'object') {
+      const metadata = item.metadata as any;
+      if (metadata.category) {
+        category = metadata.category;
+      }
+    }
+    
+    // Fallback to type-based categorization
+    if (category === 'Uncategorized') {
+      switch (item.type) {
+        case 'document': category = 'Documents'; break;
+        case 'image': category = 'Images'; break;
+        case 'audio': category = 'Audio'; break;
+        case 'video': category = 'Videos'; break;
+        case 'link': category = 'Web Content'; break;
+        case 'text': category = 'Notes'; break;
+        default: category = 'Other';
+      }
+    }
+    
     if (!acc[category]) acc[category] = [];
     acc[category].push(item);
     return acc;

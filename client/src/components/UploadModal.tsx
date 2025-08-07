@@ -174,25 +174,36 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
     try {
       const { processedContent } = await processLinkMutation.mutateAsync(linkUrl);
       
+      // Determine content type based on URL or processed content
+      let contentType = "link";
+      const urlLower = linkUrl.toLowerCase();
+      if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be') || urlLower.includes('vimeo.com')) {
+        contentType = "video";
+      }
+      
       const knowledgeItemData = {
         ...processedContent,
         content: linkUrl,
-        type: "link",
+        type: contentType,
         fileUrl: linkUrl,
         isProcessed: true,
         tags: processedContent.tags,
+        // Include enhanced metadata
+        thumbnailUrl: processedContent.thumbnailUrl,
+        metadata: processedContent.metadata || {},
       };
 
       await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
       
+      const contentTypeDisplay = contentType === "video" ? "video link" : "link";
       toast({
-        title: "Link added",
-        description: "Your link has been added to your knowledge base.",
+        title: `${contentTypeDisplay.charAt(0).toUpperCase() + contentTypeDisplay.slice(1)} added`,
+        description: `Your ${contentTypeDisplay} has been analyzed and added to your knowledge base.`,
       });
     } catch (error) {
       toast({
         title: "Processing failed",
-        description: "Failed to process link.",
+        description: "Failed to process link. It may be due to rate limiting, please try again in a moment.",
         variant: "destructive",
       });
     } finally {
@@ -346,7 +357,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
                     <i className="fas fa-link text-2xl text-white"></i>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Save Web Link</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Save articles, resources, and websites to your knowledge base</p>
+                  <p className="text-gray-600 dark:text-gray-400">Save articles, videos (YouTube, Vimeo), and websites with automatic content analysis</p>
                 </div>
                 
                 <div>
@@ -365,8 +376,19 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
                     </div>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    Our AI will automatically extract the title, content, and generate relevant tags
+                    Our AI will automatically analyze the content, extract thumbnails for videos, and generate detailed summaries with relevant tags
                   </p>
+                  <div className="flex flex-wrap justify-center gap-2 mt-3">
+                    <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
+                      <i className="fab fa-youtube mr-1"></i> YouTube
+                    </span>
+                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                      <i className="fab fa-vimeo mr-1"></i> Vimeo
+                    </span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium">
+                      <i className="fas fa-globe mr-1"></i> Articles
+                    </span>
+                  </div>
                 </div>
                 
                 <Button 

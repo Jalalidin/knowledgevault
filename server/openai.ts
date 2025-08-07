@@ -11,6 +11,14 @@ export interface ProcessedContent {
   summary: string;
   tags: string[];
   category: string;
+  thumbnailUrl?: string;
+  metadata?: {
+    videoId?: string;
+    duration?: string;
+    platform?: string;
+    dimensions?: { width: number; height: number };
+    [key: string]: any;
+  };
 }
 
 export async function processTextContent(content: string): Promise<ProcessedContent> {
@@ -51,14 +59,23 @@ export async function processImageContent(base64Image: string, fileName?: string
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant that analyzes images for a personal knowledge management system. Describe the image content and provide a title, summary, relevant tags, and category. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
+          content: "You are an AI assistant that analyzes images for a personal knowledge management system. Provide detailed, specific analysis including what's in the image, the context, style, colors, people, objects, text, activities, and any other relevant details. Create descriptive, searchable tags and categorize appropriately. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Analyze this image and provide structured metadata. ${fileName ? `File name: ${fileName}` : ""}`
+              text: `Analyze this image in detail and provide comprehensive structured metadata. Pay attention to:
+              - Main subjects and objects
+              - Activities or actions
+              - Setting/location/context
+              - Style and composition
+              - Colors and lighting
+              - Any text or writing visible
+              - Purpose or intent of the image
+              - Technical aspects if relevant
+              ${fileName ? `\nFile name: ${fileName}` : ""}`
             },
             {
               type: "image_url",
@@ -70,7 +87,7 @@ export async function processImageContent(base64Image: string, fileName?: string
         }
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
+      max_tokens: 1000,
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
@@ -79,7 +96,11 @@ export async function processImageContent(base64Image: string, fileName?: string
       title: result.title || fileName || "Image Content",
       summary: result.summary || "Image content",
       tags: Array.isArray(result.tags) ? result.tags : ["image"],
-      category: result.category || "Visual"
+      category: result.category || "Visual Content",
+      metadata: {
+        analyzed: true,
+        fileName: fileName || 'untitled'
+      }
     };
   } catch (error) {
     console.error("Error processing image content:", error);
@@ -138,8 +159,109 @@ export async function processDocumentContent(content: string, fileName?: string)
   }
 }
 
+// Enhanced video link processing
+export async function processVideoLink(url: string): Promise<ProcessedContent> {
+  const urlObj = new URL(url);
+  const domain = urlObj.hostname.replace('www.', '');
+  
+  // YouTube video processing
+  if (domain.includes('youtube.com') || domain.includes('youtu.be')) {
+    let videoId = '';
+    if (domain.includes('youtu.be')) {
+      videoId = urlObj.pathname.substring(1);
+    } else {
+      videoId = urlObj.searchParams.get('v') || '';
+    }
+    
+    if (videoId) {
+      const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      
+      try {
+        // Try to fetch video title and description from YouTube
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        const html = await response.text();
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].replace(' - YouTube', '').trim() : 'YouTube Video';
+        
+        return {
+          title,
+          summary: `YouTube video: ${title}`,
+          tags: ['video', 'youtube', 'media', 'entertainment'],
+          category: 'Video Content',
+          thumbnailUrl,
+          metadata: {
+            videoId,
+            platform: 'youtube',
+            originalUrl: url
+          }
+        };
+      } catch (error) {
+        return {
+          title: 'YouTube Video',
+          summary: `YouTube video from ${url}`,
+          tags: ['video', 'youtube', 'media'],
+          category: 'Video Content',
+          thumbnailUrl,
+          metadata: { videoId, platform: 'youtube' }
+        };
+      }
+    }
+  }
+  
+  // Vimeo video processing
+  if (domain.includes('vimeo.com')) {
+    const pathParts = urlObj.pathname.split('/');
+    const videoId = pathParts[1];
+    
+    if (videoId && /^\d+$/.test(videoId)) {
+      try {
+        const response = await fetch(url);
+        const html = await response.text();
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const title = titleMatch ? titleMatch[1].replace(' on Vimeo', '').trim() : 'Vimeo Video';
+        
+        return {
+          title,
+          summary: `Vimeo video: ${title}`,
+          tags: ['video', 'vimeo', 'media', 'creative'],
+          category: 'Video Content',
+          metadata: {
+            videoId,
+            platform: 'vimeo',
+            originalUrl: url
+          }
+        };
+      } catch (error) {
+        return {
+          title: 'Vimeo Video',
+          summary: `Vimeo video from ${url}`,
+          tags: ['video', 'vimeo', 'media'],
+          category: 'Video Content',
+          metadata: { videoId, platform: 'vimeo' }
+        };
+      }
+    }
+  }
+  
+  // Fall back to general link processing
+  return processLinkContent(url);
+}
+
 export async function processLinkContent(url: string): Promise<ProcessedContent> {
   try {
+    // Check if it's a video link first
+    const urlObj = new URL(url);
+    const domain = urlObj.hostname.replace('www.', '');
+    
+    if (domain.includes('youtube') || domain.includes('youtu.be') || domain.includes('vimeo')) {
+      return processVideoLink(url);
+    }
+    
     // Fetch the webpage content
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
@@ -172,27 +294,32 @@ export async function processLinkContent(url: string): Promise<ProcessedContent>
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const htmlTitle = titleMatch ? titleMatch[1].trim() : '';
     
-    // Parse URL for context
-    const urlObj = new URL(url);
-    const domain = urlObj.hostname.replace('www.', '');
+    // Extract meta description and other metadata
+    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i);
+    const description = descMatch ? descMatch[1] : '';
+    
+    // Extract Open Graph image if available
+    const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']*)["']/i);
+    const thumbnailUrl = ogImageMatch ? ogImageMatch[1] : undefined;
     
     const aiResponse = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant that analyzes web content for a personal knowledge management system. Analyze the provided webpage content and generate meaningful, specific tags based on the actual content, topic, technology, and context. Focus on creating useful, searchable tags that describe what this content is about. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
+          content: "You are an AI assistant that analyzes web content for a personal knowledge management system. Provide detailed analysis and generate meaningful, specific tags based on the actual content, topic, technology, context, and purpose. Focus on creating useful, searchable tags. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
         },
         {
           role: "user",
-          content: `Analyze this webpage content and provide structured metadata. Generate specific, contextual tags based on the actual content.
+          content: `Analyze this webpage content comprehensively and provide structured metadata. Focus on the main topic, purpose, industry, technology, and key concepts.
 
 URL: ${url}
 Domain: ${domain}
 HTML Title: ${htmlTitle}
+Meta Description: ${description}
 
-Content:
-${textContent}`
+Content Preview:
+${textContent.substring(0, 4000)}`
         }
       ],
       response_format: { type: "json_object" },
@@ -202,28 +329,61 @@ ${textContent}`
     
     return {
       title: result.title || htmlTitle || `Content from ${domain}`,
-      summary: result.summary || `Web content from ${url}`,
+      summary: result.summary || description || `Web content from ${url}`,
       tags: Array.isArray(result.tags) ? result.tags : ["web", domain],
-      category: result.category || "Web Content"
+      category: result.category || "Web Content",
+      thumbnailUrl,
+      metadata: {
+        domain,
+        originalUrl: url,
+        hasDescription: !!description
+      }
     };
   } catch (error) {
     console.error("Error processing link content:", error);
-    // Fallback to basic processing
+    // Enhanced fallback processing
     const urlObj = new URL(url);
     const domain = urlObj.hostname.replace('www.', '');
     
-    // Generate better fallback tags based on domain
+    // Generate better fallback tags and categories based on domain
     let fallbackTags = ["web", domain];
-    if (domain.includes('github')) fallbackTags.push('code', 'repository', 'programming');
-    if (domain.includes('youtube')) fallbackTags.push('video', 'media');
-    if (domain.includes('wikipedia')) fallbackTags.push('reference', 'knowledge');
-    if (domain.includes('stackoverflow')) fallbackTags.push('programming', 'q&a', 'development');
+    let category = "Web Content";
+    
+    if (domain.includes('github')) {
+      fallbackTags.push('code', 'repository', 'programming', 'open-source');
+      category = "Development";
+    } else if (domain.includes('youtube') || domain.includes('youtu.be')) {
+      fallbackTags.push('video', 'media', 'entertainment');
+      category = "Video Content";
+    } else if (domain.includes('vimeo')) {
+      fallbackTags.push('video', 'media', 'creative');
+      category = "Video Content";
+    } else if (domain.includes('wikipedia')) {
+      fallbackTags.push('reference', 'knowledge', 'encyclopedia');
+      category = "Reference";
+    } else if (domain.includes('stackoverflow') || domain.includes('stackexchange')) {
+      fallbackTags.push('programming', 'q&a', 'development', 'community');
+      category = "Development";
+    } else if (domain.includes('medium') || domain.includes('substack')) {
+      fallbackTags.push('article', 'blog', 'writing');
+      category = "Article";
+    } else if (domain.includes('reddit')) {
+      fallbackTags.push('discussion', 'community', 'social');
+      category = "Social";
+    } else if (domain.includes('linkedin')) {
+      fallbackTags.push('professional', 'networking', 'career');
+      category = "Professional";
+    }
     
     return {
       title: `Content from ${domain}`,
       summary: `Web link to ${url}`,
       tags: fallbackTags,
-      category: "Web Content"
+      category,
+      metadata: {
+        domain,
+        fallback: true
+      }
     };
   }
 }

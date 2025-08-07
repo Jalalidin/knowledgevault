@@ -159,41 +159,122 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
     );
   }
 
+  // Extract thumbnail URL from metadata or fallback to object path
+  const getThumbnailUrl = () => {
+    if (item.metadata && typeof item.metadata === 'object') {
+      const metadata = item.metadata as any;
+      if (metadata.thumbnailUrl) return metadata.thumbnailUrl;
+    }
+    return item.objectPath;
+  };
+
+  const getVideoInfo = () => {
+    if (item.metadata && typeof item.metadata === 'object') {
+      const metadata = item.metadata as any;
+      return {
+        platform: metadata.platform,
+        videoId: metadata.videoId,
+        duration: metadata.duration
+      };
+    }
+    return null;
+  };
+
+  const thumbnailUrl = getThumbnailUrl();
+  const videoInfo = getVideoInfo();
+
   return (
     <Card className="knowledge-card">
-      {/* Image preview for image types */}
-      {item.type === "image" && item.objectPath && (
-        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl">
+      {/* Enhanced image preview with thumbnail support */}
+      {(item.type === "image" || (item.type === "link" && thumbnailUrl)) && thumbnailUrl && (
+        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group">
           <img 
-            src={item.objectPath} 
+            src={thumbnailUrl} 
             alt={item.title}
-            className="w-full h-full object-cover rounded-t-xl"
+            className="w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.style.display = "none";
             }}
           />
+          {item.type === "link" && (
+            <div className="absolute top-2 right-2">
+              <Badge className="bg-black/50 text-white border-0">
+                <i className="fas fa-external-link-alt mr-1 text-xs"></i>
+                Link
+              </Badge>
+            </div>
+          )}
         </div>
       )}
       
-      {/* Video preview */}
-      {item.type === "video" && item.objectPath && (
-        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative">
-          <video 
-            src={item.objectPath}
-            className="w-full h-full object-cover rounded-t-xl"
-            poster=""
-          />
-          <div className="absolute inset-0 bg-black bg-opacity-30 rounded-t-xl flex items-center justify-center">
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-12 h-12 rounded-full p-0"
-              onClick={handleView}
-            >
-              <i className="fas fa-play ml-1"></i>
-            </Button>
-          </div>
+      {/* Enhanced video preview with thumbnail and platform info */}
+      {(item.type === "video" || (item.type === "link" && videoInfo)) && (
+        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group">
+          {thumbnailUrl ? (
+            <>
+              <img 
+                src={thumbnailUrl}
+                alt={item.title}
+                className="w-full h-full object-cover rounded-t-xl"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = "none";
+                }}
+              />
+              <div className="absolute inset-0 bg-black bg-opacity-40 rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-16 h-16 rounded-full p-0 shadow-lg"
+                  onClick={handleView}
+                >
+                  <i className="fas fa-play ml-1 text-xl"></i>
+                </Button>
+              </div>
+              {/* Platform badge */}
+              {videoInfo?.platform && (
+                <div className="absolute top-2 left-2">
+                  <Badge className={`${
+                    videoInfo.platform === 'youtube' ? 'bg-red-600' :
+                    videoInfo.platform === 'vimeo' ? 'bg-blue-600' :
+                    'bg-black/50'
+                  } text-white border-0`}>
+                    <i className={`${
+                      videoInfo.platform === 'youtube' ? 'fab fa-youtube' :
+                      videoInfo.platform === 'vimeo' ? 'fab fa-vimeo' :
+                      'fas fa-video'
+                    } mr-1`}></i>
+                    {videoInfo.platform.charAt(0).toUpperCase() + videoInfo.platform.slice(1)}
+                  </Badge>
+                </div>
+              )}
+              {/* Duration badge */}
+              {videoInfo?.duration && (
+                <div className="absolute bottom-2 right-2">
+                  <Badge className="bg-black/70 text-white border-0 text-xs">
+                    {videoInfo.duration}
+                  </Badge>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-500 dark:from-gray-600 dark:to-gray-800 rounded-t-xl flex items-center justify-center">
+                <i className="fas fa-video text-4xl text-white/70"></i>
+              </div>
+              <div className="absolute inset-0 bg-black bg-opacity-30 rounded-t-xl flex items-center justify-center">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-12 h-12 rounded-full p-0"
+                  onClick={handleView}
+                >
+                  <i className="fas fa-play ml-1"></i>
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
       
@@ -246,9 +327,27 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         </div>
         
         {item.summary && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-3 leading-relaxed">
             {item.summary}
           </p>
+        )}
+        
+        {/* Enhanced metadata display */}
+        {item.metadata && typeof item.metadata === 'object' && (
+          <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            {(item.metadata as any).domain && (
+              <div className="flex items-center space-x-1 mb-1">
+                <i className="fas fa-globe w-3"></i>
+                <span>{String((item.metadata as any).domain)}</span>
+              </div>
+            )}
+            {(item.metadata as any).platform && (
+              <div className="flex items-center space-x-1 mb-1">
+                <i className="fas fa-video w-3"></i>
+                <span className="capitalize">{String((item.metadata as any).platform)} Video</span>
+              </div>
+            )}
+          </div>
         )}
         
         {item.knowledgeItemTags.length > 0 && (

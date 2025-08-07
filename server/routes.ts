@@ -46,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Object storage routes for private objects
-  app.get("/objects/:objectPath(*)", isAuthenticated, async (req, res) => {
+  app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
     const userId = req.user?.claims?.sub;
     const objectStorageService = new ObjectStorageService();
     try {
@@ -115,9 +115,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/knowledge-items", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Prepare metadata with thumbnail and enhanced info
+      let metadata = req.body.metadata || {};
+      
+      // If processedContent contains thumbnail or enhanced metadata, merge it
+      if (req.body.thumbnailUrl) {
+        metadata.thumbnailUrl = req.body.thumbnailUrl;
+      }
+      if (req.body.videoInfo) {
+        metadata = { ...metadata, ...req.body.videoInfo };
+      }
+      
       const itemData = insertKnowledgeItemSchema.parse({
         ...req.body,
         userId,
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
       });
 
       const item = await storage.createKnowledgeItem(itemData);
@@ -297,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process web link
+  // Process web link with enhanced video and thumbnail support
   app.post("/api/process-link", isAuthenticated, async (req: any, res) => {
     try {
       const { url } = req.body;
@@ -313,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid URL" });
       }
 
-      // Process the link content with AI
+      // Process the link content with enhanced AI analysis
       const processedContent = await processLinkContent(url);
 
       res.json({ processedContent });
