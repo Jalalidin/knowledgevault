@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import ContentSummaryModal from "@/components/ContentSummaryModal";
 import type { KnowledgeItemWithTags } from "@shared/schema";
 
 interface KnowledgeCardProps {
@@ -22,6 +23,7 @@ interface KnowledgeCardProps {
 export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCardProps) {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
 
   const getFileIcon = (type: string, mimeType?: string) => {
     switch (type) {
@@ -79,11 +81,7 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
   };
 
   const handleView = () => {
-    if (item.type === "link" && item.fileUrl) {
-      window.open(item.fileUrl, "_blank");
-    } else if (item.objectPath) {
-      window.open(item.objectPath, "_blank");
-    }
+    setShowSummaryModal(true);
   };
 
   if (viewMode === "list") {
@@ -184,99 +182,60 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
   const videoInfo = getVideoInfo();
 
   return (
-    <Card className="knowledge-card">
-      {/* Enhanced image preview with thumbnail support */}
-      {(item.type === "image" || (item.type === "link" && thumbnailUrl)) && thumbnailUrl && (
-        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group">
-          <img 
-            src={thumbnailUrl} 
-            alt={item.title}
-            className="w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = "none";
-            }}
-          />
-          {item.type === "link" && (
-            <div className="absolute top-2 right-2">
-              <Badge className="bg-black/50 text-white border-0">
-                <i className="fas fa-external-link-alt mr-1 text-xs"></i>
-                Link
-              </Badge>
+    <>
+      <Card className="knowledge-card">
+        {/* Single thumbnail preview for images and videos */}
+        {thumbnailUrl && (item.type === "image" || item.type === "video" || (item.type === "link" && videoInfo)) && (
+          <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group cursor-pointer" onClick={handleView}>
+            <img 
+              src={thumbnailUrl}
+              alt={item.title}
+              className="w-full h-full object-cover rounded-t-xl transition-transform group-hover:scale-105"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = "none";
+              }}
+            />
+            
+            {/* Hover overlay with view button */}
+            <div className="absolute inset-0 bg-black bg-opacity-40 rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-16 h-16 rounded-full p-0 shadow-lg"
+              >
+                <i className="fas fa-eye text-xl"></i>
+              </Button>
             </div>
-          )}
-        </div>
-      )}
-      
-      {/* Enhanced video preview with thumbnail and platform info */}
-      {(item.type === "video" || (item.type === "link" && videoInfo)) && (
-        <div className="aspect-video bg-gray-100 dark:bg-gray-800 rounded-t-xl relative group">
-          {thumbnailUrl ? (
-            <>
-              <img 
-                src={thumbnailUrl}
-                alt={item.title}
-                className="w-full h-full object-cover rounded-t-xl"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                }}
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-40 rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  className="w-16 h-16 rounded-full p-0 shadow-lg"
-                  onClick={handleView}
-                >
-                  <i className="fas fa-play ml-1 text-xl"></i>
-                </Button>
+            
+            {/* Platform badge */}
+            {videoInfo?.platform && (
+              <div className="absolute top-2 left-2">
+                <Badge className={`${
+                  videoInfo.platform === 'youtube' ? 'bg-red-600' :
+                  videoInfo.platform === 'vimeo' ? 'bg-blue-600' :
+                  'bg-black/50'
+                } text-white border-0`}>
+                  <i className={`${
+                    videoInfo.platform === 'youtube' ? 'fab fa-youtube' :
+                    videoInfo.platform === 'vimeo' ? 'fab fa-vimeo' :
+                    'fas fa-video'
+                  } mr-1`}></i>
+                  {videoInfo.platform.charAt(0).toUpperCase() + videoInfo.platform.slice(1)}
+                </Badge>
               </div>
-              {/* Platform badge */}
-              {videoInfo?.platform && (
-                <div className="absolute top-2 left-2">
-                  <Badge className={`${
-                    videoInfo.platform === 'youtube' ? 'bg-red-600' :
-                    videoInfo.platform === 'vimeo' ? 'bg-blue-600' :
-                    'bg-black/50'
-                  } text-white border-0`}>
-                    <i className={`${
-                      videoInfo.platform === 'youtube' ? 'fab fa-youtube' :
-                      videoInfo.platform === 'vimeo' ? 'fab fa-vimeo' :
-                      'fas fa-video'
-                    } mr-1`}></i>
-                    {videoInfo.platform.charAt(0).toUpperCase() + videoInfo.platform.slice(1)}
-                  </Badge>
-                </div>
-              )}
-              {/* Duration badge */}
-              {videoInfo?.duration && (
-                <div className="absolute bottom-2 right-2">
-                  <Badge className="bg-black/70 text-white border-0 text-xs">
-                    {videoInfo.duration}
-                  </Badge>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-500 dark:from-gray-600 dark:to-gray-800 rounded-t-xl flex items-center justify-center">
-                <i className="fas fa-video text-4xl text-white/70"></i>
+            )}
+            
+            {/* Duration badge */}
+            {videoInfo?.duration && (
+              <div className="absolute bottom-2 right-2">
+                <Badge className="bg-black/70 text-white border-0 text-xs">
+                  {videoInfo.duration}
+                </Badge>
               </div>
-              <div className="absolute inset-0 bg-black bg-opacity-30 rounded-t-xl flex items-center justify-center">
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  className="w-12 h-12 rounded-full p-0"
-                  onClick={handleView}
-                >
-                  <i className="fas fa-play ml-1"></i>
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
       
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-3">
@@ -333,22 +292,25 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         )}
         
         {/* Enhanced metadata display */}
-        {item.metadata && typeof item.metadata === 'object' && (
-          <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-            {(item.metadata as any).domain && (
-              <div className="flex items-center space-x-1 mb-1">
-                <i className="fas fa-globe w-3"></i>
-                <span>{String((item.metadata as any).domain)}</span>
-              </div>
-            )}
-            {(item.metadata as any).platform && (
-              <div className="flex items-center space-x-1 mb-1">
-                <i className="fas fa-video w-3"></i>
-                <span className="capitalize">{String((item.metadata as any).platform)} Video</span>
-              </div>
-            )}
-          </div>
-        )}
+        {item.metadata && typeof item.metadata === 'object' && (() => {
+          const metadata = item.metadata as Record<string, any>;
+          return (
+            <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              {metadata.domain && (
+                <div className="flex items-center space-x-1 mb-1">
+                  <i className="fas fa-globe w-3"></i>
+                  <span>{String(metadata.domain)}</span>
+                </div>
+              )}
+              {metadata.platform && (
+                <div className="flex items-center space-x-1 mb-1">
+                  <i className="fas fa-video w-3"></i>
+                  <span className="capitalize">{String(metadata.platform)} Video</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         
         {item.knowledgeItemTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
@@ -385,5 +347,12 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         </div>
       </CardContent>
     </Card>
+    
+    <ContentSummaryModal 
+      isOpen={showSummaryModal} 
+      onClose={() => setShowSummaryModal(false)} 
+      item={item} 
+    />
+    </>
   );
 }
