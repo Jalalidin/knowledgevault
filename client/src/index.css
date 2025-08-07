@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(210 25% 7.8431%);
+  --card: hsl(180 6.6667% 97.0588%);
+  --card-foreground: hsl(210 25% 7.8431%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(210 25% 7.8431%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(210 40% 93%);
+  --secondary-foreground: hsl(210 25% 7.8431%);
+  --muted: hsl(210 40% 96%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --accent: hsl(159 75% 43%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(214.3 31.8% 91.4%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --ring: hsl(217 91% 60%);
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(159 75% 43%);
+  --chart-3: hsl(45 93% 47%);
+  --chart-4: hsl(142 76% 36%);
+  --chart-5: hsl(343 75% 51%);
+  --sidebar: hsl(180 6.6667% 97.0588%);
+  --sidebar-foreground: hsl(210 25% 7.8431%);
+  --sidebar-primary: hsl(217 91% 60%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(210 40% 93%);
+  --sidebar-accent-foreground: hsl(217 91% 60%);
+  --sidebar-border: hsl(205.0000 25.0000% 90.5882%);
+  --sidebar-ring: hsl(217 91% 60%);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
+  --primary: hsl(217 91% 60%);
+  --primary-foreground: hsl(222.2 84% 4.9%);
+  --secondary: hsl(217.2 32.6% 17.5%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --accent: hsl(159 75% 43%);
+  --accent-foreground: hsl(210 40% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(217.2 32.6% 17.5%);
+  --input: hsl(217.2 32.6% 17.5%);
+  --ring: hsl(212.7 26.8% 83.9%);
+  --chart-1: hsl(220 70% 50%);
+  --chart-2: hsl(160 60% 45%);
+  --chart-3: hsl(30 80% 55%);
+  --chart-4: hsl(280 65% 60%);
+  --chart-5: hsl(340 75% 55%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground opacity-20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground opacity-30;
+}
+
+/* Search result highlighting */
+.search-highlight {
+  @apply bg-yellow-200 dark:bg-yellow-800 dark:bg-opacity-30;
+}
+
+/* Knowledge card hover effects */
+.knowledge-card {
+  @apply transition-all duration-200 hover:shadow-md dark:hover:shadow-lg;
+}
+
+/* Upload zone styling */
+.upload-zone {
+  @apply border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors;
+}
+
+.upload-zone.drag-over {
+  @apply border-primary bg-primary bg-opacity-5;
+}
+
+/* Tag colors */
+.tag-blue { @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-opacity-30 dark:text-blue-400; }
+.tag-green { @apply bg-green-100 text-green-800 dark:bg-green-900 dark:bg-opacity-30 dark:text-green-400; }
+.tag-purple { @apply bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-opacity-30 dark:text-purple-400; }
+.tag-red { @apply bg-red-100 text-red-800 dark:bg-red-900 dark:bg-opacity-30 dark:text-red-400; }
+.tag-yellow { @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:bg-opacity-30 dark:text-yellow-400; }
+.tag-orange { @apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:bg-opacity-30 dark:text-orange-400; }
+.tag-cyan { @apply bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:bg-opacity-30 dark:text-cyan-400; }
+.tag-pink { @apply bg-pink-100 text-pink-800 dark:bg-pink-900 dark:bg-opacity-30 dark:text-pink-400; }
+.tag-indigo { @apply bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:bg-opacity-30 dark:text-indigo-400; }
+.tag-gray { @apply bg-gray-100 text-gray-800 dark:bg-gray-900 dark:bg-opacity-30 dark:text-gray-400; }
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin rounded-full border-2 border-muted border-t-primary;
+}
+
+/* File type icons */
+.file-icon-pdf { @apply text-red-600; }
+.file-icon-doc { @apply text-blue-600; }
+.file-icon-image { @apply text-green-600; }
+.file-icon-audio { @apply text-purple-600; }
+.file-icon-video { @apply text-red-600; }
+.file-icon-text { @apply text-gray-600; }
+.file-icon-link { @apply text-cyan-600; }
+
+/* Responsive grid */
+@screen sm {
+  .knowledge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+@screen lg {
+  .knowledge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+}
