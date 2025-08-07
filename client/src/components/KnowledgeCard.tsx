@@ -165,11 +165,11 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 morphism-button rounded-full">
+                <Button variant="ghost" size="sm" className="h-10 w-10 p-0 bg-white/10 dark:bg-gray-800/50 hover:bg-white/20 dark:hover:bg-gray-700 rounded-full">
                   <i className="fas fa-ellipsis-v text-gray-600 dark:text-gray-300"></i>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="morphism-button border-0">
+              <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
                 <DropdownMenuItem onClick={handleView} className="hover:bg-purple-100 dark:hover:bg-purple-900/20">
                   <i className="fas fa-eye mr-2 text-purple-600"></i>
                   View Details
@@ -378,11 +378,11 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-10 w-10 p-0 flex-shrink-0 morphism-button rounded-full">
+              <Button variant="ghost" size="sm" className="h-10 w-10 p-0 flex-shrink-0 bg-white/10 dark:bg-gray-800/50 hover:bg-white/20 dark:hover:bg-gray-700 rounded-full">
                 <i className="fas fa-ellipsis-v text-gray-600 dark:text-gray-300"></i>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="morphism-button border-0">
+            <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
               <DropdownMenuItem onClick={handleView} className="hover:bg-purple-100 dark:hover:bg-purple-900/20">
                 <i className="fas fa-eye mr-2 text-purple-600"></i>
                 View Details
@@ -458,7 +458,7 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
           </div>
           <Button 
             onClick={handleView}
-            className="morphism-button bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 font-semibold px-4 py-2 rounded-full shadow-lg"
+            className="bg-primary hover:bg-primary/90 text-white transform hover:scale-105 transition-all duration-200 font-semibold px-4 py-2 rounded-full shadow-lg"
           >
             <i className="fas fa-arrow-right mr-2"></i>
             View Details

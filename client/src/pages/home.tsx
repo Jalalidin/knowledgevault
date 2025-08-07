@@ -233,7 +233,7 @@ export default function Home() {
                   <Button 
                     onClick={handleTextSubmit}
                     disabled={!textContent.trim() || isProcessing}
-                    className="morphism-button bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-2xl px-8 py-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 font-semibold"
+                    className="bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 py-4 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 font-semibold"
                     size="lg"
                   >
                     {isProcessing ? (
@@ -251,7 +251,7 @@ export default function Home() {
                   
                   <Button 
                     onClick={() => setShowUploadModal(true)}
-                    className="morphism-button border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-400 rounded-2xl px-8 py-4 transform hover:scale-105 transition-all duration-300 font-semibold"
+                    className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 hover:border-purple-500 dark:hover:border-purple-400 text-gray-700 dark:text-gray-200 rounded-2xl px-8 py-4 transform hover:scale-105 transition-all duration-300 font-semibold"
                     size="lg"
                   >
                     <i className="fas fa-plus mr-2"></i>
@@ -275,7 +275,7 @@ export default function Home() {
                 <Button 
                   variant="ghost"
                   onClick={() => setShowSearchModal(true)}
-                  className="morphism-button hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 font-medium px-4 py-2 rounded-xl"
+                  className="morphism-button hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium px-4 py-2 rounded-xl"
                 >
                   <i className="fas fa-search mr-2"></i>
                   Search Knowledge
@@ -318,8 +318,8 @@ export default function Home() {
                   onClick={() => setViewMode("card")}
                   className={`px-4 py-2 rounded-xl transition-all duration-200 ${
                     viewMode === "card" 
-                      ? "bg-primary text-primary-foreground shadow-md" 
-                      : "hover:bg-secondary text-muted-foreground"
+                      ? "bg-primary text-white shadow-md" 
+                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-th mr-2"></i>
@@ -331,8 +331,8 @@ export default function Home() {
                   onClick={() => setViewMode("list")}
                   className={`px-4 py-2 rounded-xl transition-all duration-200 ${
                     viewMode === "list" 
-                      ? "bg-primary text-primary-foreground shadow-md" 
-                      : "hover:bg-secondary text-muted-foreground"
+                      ? "bg-primary text-white shadow-md" 
+                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-list mr-2"></i>
@@ -344,8 +344,8 @@ export default function Home() {
                   onClick={() => setViewMode("categories")}
                   className={`px-4 py-2 rounded-xl transition-all duration-200 ${
                     viewMode === "categories" 
-                      ? "bg-primary text-primary-foreground shadow-md" 
-                      : "hover:bg-secondary text-muted-foreground"
+                      ? "bg-primary text-white shadow-md" 
+                      : "hover:bg-secondary text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   <i className="fas fa-layer-group mr-2"></i>
