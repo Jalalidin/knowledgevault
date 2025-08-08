@@ -245,7 +245,7 @@ export default function Home() {
                 onChange={handleFileInputChange}
                 accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md"
               />
-              <div className={`min-h-48 border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer group ${
+              <div className={`min-h-32 border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer group ${
                 isDragOver 
                   ? "border-primary bg-primary/5 dark:bg-primary/10" 
                   : isProcessing
@@ -257,37 +257,37 @@ export default function Home() {
                    onDragLeave={handleDragLeave}
                    onClick={isProcessing ? undefined : handleFileSelect}
               >
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <div className="flex justify-center">
-                    <div className="flex flex-col items-center p-6 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 max-w-sm">
-                      <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center mb-4">
-                        <i className="fas fa-cloud-upload-alt text-white text-2xl"></i>
+                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 max-w-xs">
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
+                        <i className="fas fa-cloud-upload-alt text-white text-lg"></i>
                       </div>
-                      <p className="font-semibold text-gray-900 dark:text-white mb-2 text-lg">Files & Documents</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 text-center">PDF, Images, Audio, Video</p>
+                      <p className="font-medium text-gray-900 dark:text-white mb-1">Files & Documents</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 text-center">PDF, Images, Audio, Video</p>
                     </div>
                   </div>
                   
                   <div className="text-center">
                     {isProcessing ? (
-                      <div className="flex flex-col items-center space-y-4">
-                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                        <p className="text-lg font-medium text-gray-900 dark:text-white">Processing files...</p>
-                        <p className="text-gray-600 dark:text-gray-300">AI is analyzing your content</p>
+                      <div className="flex flex-col items-center space-y-3">
+                        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-base font-medium text-gray-900 dark:text-white">Processing files...</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">AI is analyzing your content</p>
                       </div>
                     ) : isDragOver ? (
-                      <div className="flex flex-col items-center space-y-4">
-                        <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
-                          <i className="fas fa-cloud-upload-alt text-white text-2xl"></i>
+                      <div className="flex flex-col items-center space-y-3">
+                        <div className="w-14 h-14 bg-primary rounded-lg flex items-center justify-center">
+                          <i className="fas fa-cloud-upload-alt text-white text-xl"></i>
                         </div>
-                        <p className="text-lg font-medium text-primary">Drop files to upload</p>
-                        <p className="text-gray-600 dark:text-gray-300">Release to start processing</p>
+                        <p className="text-base font-medium text-primary">Drop files to upload</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">Release to start processing</p>
                       </div>
                     ) : (
                       <>
-                        <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Drag & Drop Files Here</p>
-                        <p className="text-gray-600 dark:text-gray-300">Or click to browse and select files</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">AI will automatically analyze and organize your content</p>
+                        <p className="text-base font-medium text-gray-900 dark:text-white mb-1">Drag & Drop Files Here</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">Or click to browse and select files</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">AI will automatically analyze and organize your content</p>
                       </>
                     )}
                   </div>
