@@ -95,7 +95,8 @@ export default function Home() {
               mimeType: file.type
             });
             
-            processedContent = await aiResponse.json();
+            const aiResult = await aiResponse.json();
+            processedContent = aiResult;
           } catch (aiError) {
             console.error("AI processing failed:", aiError);
             // Fallback to basic processing
