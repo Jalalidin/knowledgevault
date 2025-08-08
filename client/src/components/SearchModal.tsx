@@ -92,19 +92,9 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
                 placeholder="Search your knowledge base..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full pl-4 pr-12 py-3 text-lg"
+                className="w-full pl-4 pr-4 py-3 text-lg"
                 autoFocus
               />
-              {query && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
-                >
-                  <i className="fas fa-times"></i>
-                </Button>
-              )}
             </div>
           </div>
           
