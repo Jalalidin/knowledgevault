@@ -83,11 +83,11 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden relative">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden">
         {/* Custom close button positioned at top-right corner */}
         <button
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 w-8 h-8 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800"
+          className="absolute -top-3 -right-3 z-50 w-8 h-8 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-200 dark:hover:border-red-800"
         >
           <i className="fas fa-times text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 text-sm"></i>
         </button>
