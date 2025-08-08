@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
 import UploadZone from "@/components/UploadZone";
 import KnowledgeCard from "@/components/KnowledgeCard";
 import SearchModal from "@/components/SearchModal";
-import UploadModal from "@/components/UploadModal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +19,11 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"card" | "list" | "categories">("card");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [textContent, setTextContent] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: knowledgeItems, isLoading, refetch } = useQuery<KnowledgeItemWithTags[]>({
     queryKey: ["/api/knowledge-items"],
@@ -52,9 +52,105 @@ export default function Home() {
     setShowSearchModal(true);
   };
 
-  const handleUploadSuccess = () => {
-    refetch();
-    setShowUploadModal(false);
+  const getFileType = (mimeType?: string): string => {
+    if (!mimeType) return "document";
+    
+    if (mimeType.startsWith("image/")) return "image";
+    if (mimeType.startsWith("audio/")) return "audio";
+    if (mimeType.startsWith("video/")) return "video";
+    if (mimeType.includes("pdf") || mimeType.includes("document")) return "document";
+    if (mimeType.startsWith("text/")) return "text";
+    
+    return "document";
+  };
+
+  const handleFileUpload = async (files: FileList) => {
+    if (!files || files.length === 0) return;
+
+    setIsProcessing(true);
+    try {
+      for (const file of Array.from(files)) {
+        // Get upload URL
+        const uploadResponse = await apiRequest("POST", "/api/objects/upload");
+        const { uploadURL } = await uploadResponse.json();
+
+        // Upload file to cloud storage
+        const uploadFileResponse = await fetch(uploadURL, {
+          method: "PUT",
+          body: file,
+          headers: {
+            "Content-Type": file.type,
+          },
+        });
+
+        if (!uploadFileResponse.ok) {
+          throw new Error("Failed to upload file");
+        }
+
+        // Create knowledge item
+        const knowledgeItemData = {
+          title: file.name || "Uploaded File",
+          summary: `Uploaded file: ${file.name}`,
+          content: "",
+          type: getFileType(file.type),
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          fileUrl: uploadURL,
+          isProcessed: false,
+          tags: ["upload"],
+        };
+
+        await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
+      }
+      
+      toast({
+        title: files.length === 1 ? "File uploaded! 📁" : `${files.length} files uploaded! 📁`,
+        description: "Your files have been uploaded and are being processed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload files. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      handleFileUpload(files);
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleTextSubmit = async () => {
@@ -141,17 +237,25 @@ export default function Home() {
             
             {/* Clean Upload Zone */}
             <div className="relative">
-              <div className="min-h-48 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer group bg-gray-50 dark:bg-gray-800/50"
-                   onDrop={(e) => {
-                     e.preventDefault();
-                     const files = Array.from(e.dataTransfer.files);
-                     if (files.length > 0) {
-                       setShowUploadModal(true);
-                     }
-                   }}
-                   onDragOver={(e) => e.preventDefault()}
-                   onDragEnter={(e) => e.preventDefault()}
-                   onClick={() => setShowUploadModal(true)}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileInputChange}
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.md"
+              />
+              <div className={`min-h-48 border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer group ${
+                isDragOver 
+                  ? "border-primary bg-primary/5 dark:bg-primary/10" 
+                  : isProcessing
+                  ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 cursor-wait"
+                  : "border-gray-300 dark:border-gray-600 hover:border-primary dark:hover:border-primary bg-gray-50 dark:bg-gray-800/50"
+              }`}
+                   onDrop={handleDrop}
+                   onDragOver={handleDragOver}
+                   onDragLeave={handleDragLeave}
+                   onClick={isProcessing ? undefined : handleFileSelect}
               >
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -181,8 +285,27 @@ export default function Home() {
                   </div>
                   
                   <div className="text-center">
-                    <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Drag & Drop Files Here</p>
-                    <p className="text-gray-600 dark:text-gray-300">AI will automatically analyze and organize your content</p>
+                    {isProcessing ? (
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white">Processing files...</p>
+                        <p className="text-gray-600 dark:text-gray-300">AI is analyzing your content</p>
+                      </div>
+                    ) : isDragOver ? (
+                      <div className="flex flex-col items-center space-y-4">
+                        <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
+                          <i className="fas fa-cloud-upload-alt text-white text-2xl"></i>
+                        </div>
+                        <p className="text-lg font-medium text-primary">Drop files to upload</p>
+                        <p className="text-gray-600 dark:text-gray-300">Release to start processing</p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">Drag & Drop Files Here</p>
+                        <p className="text-gray-600 dark:text-gray-300">Or click to browse and select files</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">AI will automatically analyze and organize your content</p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -227,12 +350,22 @@ export default function Home() {
                   </Button>
                   
                   <Button 
-                    onClick={() => setShowUploadModal(true)}
+                    onClick={handleFileSelect}
                     variant="outline"
                     className="rounded-lg px-6 py-2"
+                    disabled={isProcessing}
                   >
-                    <i className="fas fa-upload mr-2"></i>
-                    Upload
+                    {isProcessing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-upload mr-2"></i>
+                        Upload Files
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -397,12 +530,6 @@ export default function Home() {
           isOpen={showSearchModal}
           onClose={() => setShowSearchModal(false)}
           initialQuery={searchQuery}
-        />
-        
-        <UploadModal
-          isOpen={showUploadModal}
-          onClose={() => setShowUploadModal(false)}
-          onSuccess={handleUploadSuccess}
         />
       </div>
     </div>
