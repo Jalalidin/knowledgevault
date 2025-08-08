@@ -1,10 +1,7 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: "sk-3TGG97tC9UMWRb5OKond8idSRbdjYryBihkF9liopYUKNbDM",
-  baseURL: "https://api.lhyb.dpdns.org/v1"
-});
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface ProcessedContent {
   title: string;
@@ -59,7 +56,7 @@ export async function processImageContent(base64Image: string, fileName?: string
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant that analyzes images for a personal knowledge management system. Provide detailed, specific analysis including what's in the image, the context, style, colors, people, objects, text, activities, and any other relevant details. Create descriptive, searchable tags and categorize appropriately. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string }"
+          content: "You are an AI assistant that analyzes images for a personal knowledge management system. Provide detailed, specific analysis including what's in the image, the context, style, colors, people, objects, text, activities, and any other relevant details. Create descriptive, searchable tags and categorize appropriately. IMPORTANT: Generate a descriptive, meaningful title that describes what's actually in the image - not just 'image' or 'photo'. Make the title specific and informative. Respond with JSON in this format: { 'title': string, 'summary': string, 'tags': string[], 'category': string, 'suggestedFileName': string }"
         },
         {
           role: "user",
@@ -75,7 +72,12 @@ export async function processImageContent(base64Image: string, fileName?: string
               - Any text or writing visible
               - Purpose or intent of the image
               - Technical aspects if relevant
-              ${fileName ? `\nFile name: ${fileName}` : ""}`
+              
+For the title: Create a descriptive, specific title that explains what's in the image (e.g., "Golden retriever playing in park", "Modern kitchen with marble countertops", "Team meeting in conference room")
+              
+For suggestedFileName: Create a clean, descriptive filename without spaces (use underscores or hyphens) that reflects the content (e.g., "golden_retriever_playing_park", "modern_kitchen_marble_countertops", "team_meeting_conference_room")
+              
+              ${fileName ? `\nOriginal file name: ${fileName}` : ""}`
             },
             {
               type: "image_url",
@@ -99,7 +101,8 @@ export async function processImageContent(base64Image: string, fileName?: string
       category: result.category || "Visual Content",
       metadata: {
         analyzed: true,
-        fileName: fileName || 'untitled'
+        fileName: fileName || 'untitled',
+        suggestedFileName: result.suggestedFileName || null
       }
     };
   } catch (error) {

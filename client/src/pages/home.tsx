@@ -87,31 +87,51 @@ export default function Home() {
           throw new Error("Failed to upload file");
         }
 
-        // Create knowledge item
+        // Process uploaded file with AI
+        const processResponse = await apiRequest("POST", "/api/process-uploaded-object", {
+          objectURL: uploadURL,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        });
+        
+        const { processedContent, objectPath, thumbnailUrl, processingError } = await processResponse.json();
+        
+        // Create enhanced knowledge item with AI-processed data
         const knowledgeItemData = {
-          title: file.name || "Uploaded File",
-          summary: `Uploaded file: ${file.name}`,
-          content: "",
+          title: processedContent.title,
+          summary: processedContent.summary,
+          content: file.type.startsWith("text/") ? "" : processedContent.summary,
           type: getFileType(file.type),
           fileName: file.name,
           fileSize: file.size,
           mimeType: file.type,
           fileUrl: uploadURL,
-          isProcessed: false,
-          tags: ["upload"],
+          objectPath: objectPath,
+          isProcessed: !processingError,
+          processingError: processingError || null,
+          tags: processedContent.tags || ["upload"],
+          metadata: {
+            category: processedContent.category,
+            thumbnailUrl: thumbnailUrl,
+            analyzed: true,
+            processingState: processingError ? 'failed' : 'completed',
+            ...(processedContent.metadata || {})
+          }
         };
 
         await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
       }
       
       toast({
-        title: files.length === 1 ? "File uploaded! 📁" : `${files.length} files uploaded! 📁`,
-        description: "Your files have been uploaded and are being processed.",
+        title: files.length === 1 ? "File processed! 🧠" : `${files.length} files processed! 🧠`,
+        description: "Your files have been uploaded and analyzed with AI.",
       });
     } catch (error) {
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload files. Please try again.",
+        description: "Failed to upload and process files. Please try again.",
         variant: "destructive",
       });
     } finally {

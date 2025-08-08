@@ -132,18 +132,18 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
                     {getFileSize(item.fileSize)}
                   </span>
                 )}
-                {isProcessing && (
+                {isProcessing ? (
                   <div className="flex items-center space-x-1 text-blue-500">
                     <div className="pulse-loader"></div>
                     <span className="text-xs font-medium">Processing</span>
                   </div>
-                )}
-                {processingFailed && (
+                ) : null}
+                {processingFailed ? (
                   <div className="flex items-center space-x-1 text-amber-500">
                     <i className="fas fa-exclamation-triangle"></i>
                     <span className="text-xs font-medium">Incomplete</span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
             
@@ -355,18 +355,18 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
                   <i className="fas fa-clock mr-1"></i>
                   {formatDistanceToNow(new Date(item.createdAt || new Date()))} ago
                 </span>
-                {isProcessing && (
+                {isProcessing ? (
                   <div className="flex items-center space-x-2 text-sm text-purple-600 dark:text-purple-400">
                     <div className="pulse-loader w-3 h-3"></div>
                     <span className="font-medium">Processing</span>
                   </div>
-                )}
-                {processingFailed && (
+                ) : null}
+                {processingFailed ? (
                   <div className="flex items-center space-x-1 text-sm text-amber-500">
                     <i className="fas fa-exclamation-triangle"></i>
                     <span className="font-medium">Incomplete</span>
                   </div>
-                )}
+                ) : null}
                 {!isProcessing && !processingFailed && (
                   <div className="flex items-center space-x-1 text-sm text-emerald-500">
                     <i className="fas fa-shield-check"></i>
@@ -406,25 +406,25 @@ export default function KnowledgeCard({ item, viewMode, onUpdate }: KnowledgeCar
         )}
         
         {/* Enhanced metadata display */}
-        {item.metadata && typeof item.metadata === 'object' && (() => {
+        {item.metadata && typeof item.metadata === 'object' ? (() => {
           const metadata = item.metadata as Record<string, any>;
           return (
             <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-              {metadata.domain && (
+              {metadata.domain ? (
                 <div className="flex items-center space-x-1 mb-1">
                   <i className="fas fa-globe w-3"></i>
                   <span>{String(metadata.domain)}</span>
                 </div>
-              )}
-              {metadata.platform && (
+              ) : null}
+              {metadata.platform ? (
                 <div className="flex items-center space-x-1 mb-1">
                   <i className="fas fa-video w-3"></i>
                   <span className="capitalize">{String(metadata.platform)} Video</span>
                 </div>
-              )}
+              ) : null}
             </div>
           );
-        })()}
+        })() : null}
         
         {item.knowledgeItemTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
