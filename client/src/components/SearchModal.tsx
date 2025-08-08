@@ -83,7 +83,7 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:opacity-100 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:transition-colors">
         <DialogHeader>
           <div className="flex items-center space-x-4 pb-4">
             <div className="flex-1 relative">
