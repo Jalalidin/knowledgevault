@@ -42,7 +42,7 @@ export default function Navigation({ onSearch }: NavigationProps) {
 
   return (
     <nav className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-slate-700/50 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="flex justify-between h-20">
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center">
@@ -67,7 +67,7 @@ export default function Navigation({ onSearch }: NavigationProps) {
                   placeholder="Search your knowledge..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-96 pl-12 pr-12 h-12 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200/50 dark:border-slate-600/50 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50"
+                  className="w-96 xl:w-[480px] 2xl:w-[600px] pl-12 pr-12 h-12 bg-gray-50/50 dark:bg-slate-700/50 border-gray-200/50 dark:border-slate-600/50 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50"
                 />
                 <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
                   <i className="fas fa-search text-gray-400"></i>

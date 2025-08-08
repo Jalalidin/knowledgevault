@@ -121,6 +121,14 @@
   .masonry-grid { column-count: 4; }
 }
 
+@media (min-width: 1536px) {
+  .masonry-grid { column-count: 5; }
+}
+
+@media (min-width: 1920px) {
+  .masonry-grid { column-count: 6; }
+}
+
 .masonry-item {
   break-inside: avoid;
   margin-bottom: 1.5rem;
@@ -315,5 +323,29 @@
 @screen lg {
   .knowledge-grid {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+}
+
+@screen xl {
+  .knowledge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  }
+}
+
+@screen 2xl {
+  .knowledge-grid {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  }
+}
+
+/* Full screen layout optimizations */
+@media (min-width: 1920px) {
+  .main-container {
+    max-width: 90vw;
+  }
+  
+  .hero-section {
+    max-width: 1200px;
+    margin: 0 auto;
   }
 }
