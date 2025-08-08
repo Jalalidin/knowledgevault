@@ -258,29 +258,13 @@ export default function Home() {
                    onClick={isProcessing ? undefined : handleFileSelect}
               >
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
-                        <i className="fas fa-file text-white"></i>
+                  <div className="flex justify-center">
+                    <div className="flex flex-col items-center p-6 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 max-w-sm">
+                      <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center mb-4">
+                        <i className="fas fa-cloud-upload-alt text-white text-2xl"></i>
                       </div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-1">Files & Documents</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">PDF, Images, Audio, Video</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
-                        <i className="fas fa-edit text-white"></i>
-                      </div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-1">Text & Notes</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Ideas, articles, thoughts</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
-                        <i className="fas fa-link text-white"></i>
-                      </div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-1">Web Content</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Links, videos, articles</p>
+                      <p className="font-semibold text-gray-900 dark:text-white mb-2 text-lg">Files & Documents</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 text-center">PDF, Images, Audio, Video</p>
                     </div>
                   </div>
                   
