@@ -336,111 +336,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process uploaded object with AI (images, audio, etc.)
-  app.post("/api/process-uploaded-object", isAuthenticated, async (req: any, res) => {
+  // Process image with AI before upload
+  app.post("/api/process-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const { base64Image, fileName, fileSize, mimeType } = req.body;
+      
+      if (!base64Image) {
+        return res.status(400).json({ error: "base64Image is required" });
+      }
+
+      // Process image with AI
+      const processedContent = await processImageContent(base64Image, fileName);
+      
+      res.json(processedContent);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      res.status(500).json({ error: "Failed to process image with AI" });
+    }
+  });
+
+  // Set object ACL after upload
+  app.post("/api/set-object-acl", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { objectURL, fileName, fileSize, mimeType } = req.body;
+      const { objectURL } = req.body;
       
       if (!objectURL) {
         return res.status(400).json({ error: "objectURL is required" });
       }
 
-      let processedContent;
-      
-      try {
-        if (mimeType && mimeType.startsWith("image/")) {
-          // Download the image from object storage for AI analysis
-          const response = await fetch(objectURL);
-          if (!response.ok) {
-            throw new Error("Failed to download image for processing");
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          const base64Image = Buffer.from(arrayBuffer).toString("base64");
-          
-          // Process image with AI
-          processedContent = await processImageContent(base64Image, fileName);
-        } else if (mimeType && mimeType.startsWith("audio/")) {
-          // For audio files, we'd need to download and process them
-          // For now, use a basic fallback
-          processedContent = {
-            title: fileName || "Audio File",
-            summary: "Audio content uploaded for analysis",
-            tags: ["audio", "media"],
-            category: "Audio Content"
-          };
-        } else if (mimeType && mimeType.startsWith("video/")) {
-          // For video files, basic fallback
-          processedContent = {
-            title: fileName || "Video File",
-            summary: "Video content uploaded for analysis",
-            tags: ["video", "media"],
-            category: "Video Content"
-          };
-        } else {
-          // Generic file processing
-          processedContent = {
-            title: fileName || "Uploaded File",
-            summary: `File uploaded: ${fileName || 'unknown'} (${mimeType || 'unknown type'})`,
-            tags: ["document", "upload"],
-            category: "Documents"
-          };
+      // Set object ACL policy
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        objectURL,
+        {
+          owner: userId,
+          visibility: "private",
         }
+      );
 
-        // Set object ACL policy
-        const objectStorageService = new ObjectStorageService();
-        const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-          objectURL,
-          {
-            owner: userId,
-            visibility: "private",
-          }
-        );
-
-        res.json({
-          processedContent,
-          objectPath,
-          fileInfo: {
-            fileName,
-            fileSize,
-            mimeType,
-          },
-          thumbnailUrl: mimeType && mimeType.startsWith("image/") ? objectPath : undefined
-        });
-      } catch (processingError) {
-        console.error("Error processing uploaded object:", processingError);
-        
-        // Set object ACL policy even if processing fails
-        const objectStorageService = new ObjectStorageService();
-        const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-          objectURL,
-          {
-            owner: userId,
-            visibility: "private",
-          }
-        );
-        
-        // Return minimal processed content for failed processing
-        res.json({
-          processedContent: {
-            title: fileName || "Uploaded File",
-            summary: "File uploaded successfully, but AI processing encountered an issue.",
-            tags: ["upload"],
-            category: "Uploaded Content"
-          },
-          objectPath,
-          fileInfo: {
-            fileName,
-            fileSize,
-            mimeType,
-          },
-          processingError: processingError instanceof Error ? processingError.message : String(processingError)
-        });
-      }
+      res.json({ objectPath });
     } catch (error) {
-      console.error("Error processing uploaded object:", error);
-      res.status(500).json({ error: "Failed to process uploaded object" });
+      console.error("Error setting object ACL:", error);
+      res.status(500).json({ error: "Failed to set object permissions" });
     }
   });
 

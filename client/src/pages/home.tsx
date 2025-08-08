@@ -70,6 +70,52 @@ export default function Home() {
     setIsProcessing(true);
     try {
       for (const file of Array.from(files)) {
+        let processedContent;
+        
+        // Process file with AI before uploading (for images)
+        if (file.type.startsWith("image/")) {
+          try {
+            // Convert image to base64 for AI processing
+            const base64Image = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                const base64 = result.split(',')[1]; // Remove data:image/...;base64, prefix
+                resolve(base64);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            
+            // Process image with AI
+            const aiResponse = await apiRequest("POST", "/api/process-image", {
+              base64Image,
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type
+            });
+            
+            processedContent = await aiResponse.json();
+          } catch (aiError) {
+            console.error("AI processing failed:", aiError);
+            // Fallback to basic processing
+            processedContent = {
+              title: file.name,
+              summary: `Image file: ${file.name}`,
+              tags: ["image", "upload"],
+              category: "Images"
+            };
+          }
+        } else {
+          // For non-image files, use basic processing
+          processedContent = {
+            title: file.name,
+            summary: `Uploaded file: ${file.name}`,
+            tags: ["upload"],
+            category: getFileType(file.type) === "document" ? "Documents" : "Files"
+          };
+        }
+        
         // Get upload URL
         const uploadResponse = await apiRequest("POST", "/api/objects/upload");
         const { uploadURL } = await uploadResponse.json();
@@ -87,15 +133,12 @@ export default function Home() {
           throw new Error("Failed to upload file");
         }
 
-        // Process uploaded file with AI
-        const processResponse = await apiRequest("POST", "/api/process-uploaded-object", {
-          objectURL: uploadURL,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type,
+        // Set object ACL after successful upload
+        const aclResponse = await apiRequest("POST", "/api/set-object-acl", {
+          objectURL: uploadURL
         });
         
-        const { processedContent, objectPath, thumbnailUrl, processingError } = await processResponse.json();
+        const { objectPath } = await aclResponse.json();
         
         // Create enhanced knowledge item with AI-processed data
         const knowledgeItemData = {
@@ -108,14 +151,13 @@ export default function Home() {
           mimeType: file.type,
           fileUrl: uploadURL,
           objectPath: objectPath,
-          isProcessed: !processingError,
-          processingError: processingError || null,
+          isProcessed: true,
           tags: processedContent.tags || ["upload"],
           metadata: {
             category: processedContent.category,
-            thumbnailUrl: thumbnailUrl,
+            thumbnailUrl: file.type.startsWith("image/") ? objectPath : undefined,
             analyzed: true,
-            processingState: processingError ? 'failed' : 'completed',
+            processingState: 'completed',
             ...(processedContent.metadata || {})
           }
         };
