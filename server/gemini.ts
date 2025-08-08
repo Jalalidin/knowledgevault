@@ -26,14 +26,18 @@ export interface ProcessedContent {
 
 export async function processImageWithGemini(base64Image: string, fileName?: string): Promise<ProcessedContent> {
   try {
-    const systemPrompt = `You are an AI assistant that analyzes images for a personal knowledge management system. Provide detailed, specific analysis including what's in the image, the context, style, colors, people, objects, text, activities, and any other relevant details. Create descriptive, searchable tags and categorize appropriately. 
+    const systemPrompt = `You are an AI assistant that analyzes images for a personal knowledge management system. Create concise, clear content descriptions optimized for search and knowledge retrieval. Focus on what's visible: subjects, objects, activities, settings, colors, and context.
 
-IMPORTANT: Generate a descriptive, meaningful title that describes what's actually in the image - not just 'image' or 'photo'. Make the title specific and informative.
+IMPORTANT: 
+- Generate a specific, descriptive title
+- Write a concise summary without meta-references like "the image shows" or "this image contains" 
+- Create searchable tags and appropriate categories
+- Keep descriptions direct and factual for knowledge-based searching
 
 Respond with JSON in this exact format:
 {
   "title": "specific descriptive title",
-  "summary": "detailed description of image content",
+  "summary": "concise description of content",
   "tags": ["tag1", "tag2", "tag3"],
   "category": "category name",
   "suggestedFileName": "clean_filename_without_spaces"
@@ -46,19 +50,18 @@ Respond with JSON in this exact format:
           mimeType: "image/jpeg",
         },
       },
-      `Analyze this image in detail and provide comprehensive structured metadata. Pay attention to:
-      - Main subjects and objects
-      - Activities or actions
-      - Setting/location/context
-      - Style and composition
-      - Colors and lighting
-      - Any text or writing visible
-      - Purpose or intent of the image
-      - Technical aspects if relevant
+      `Analyze and describe the content concisely. Focus on:
+      - Key subjects, objects, and activities
+      - Setting, environment, and context
+      - Notable colors, style, or composition
+      - Any visible text or writing
+      - Important details for searchability
       
-For the title: Create a descriptive, specific title that explains what's in the image (e.g., "Golden retriever playing in park", "Modern kitchen with marble countertops", "Team meeting in conference room")
+Write descriptions without phrases like "the image shows" or "this image contains" - describe directly what is present.
       
-For suggestedFileName: Create a clean, descriptive filename without spaces (use underscores or hyphens) that reflects the content (e.g., "golden_retriever_playing_park", "modern_kitchen_marble_countertops", "team_meeting_conference_room")
+Title example: "Golden retriever playing in park" or "Modern kitchen with marble countertops"
+      
+Filename example: "golden_retriever_playing_park" or "modern_kitchen_marble_countertops"
       
       ${fileName ? `\nOriginal file name: ${fileName}` : ""}`,
     ];
