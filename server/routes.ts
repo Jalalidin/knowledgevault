@@ -15,6 +15,7 @@ import {
   searchKnowledgeBase,
   processLinkContent,
 } from "./openai";
+import { processImageWithGemini } from "./gemini";
 import { insertKnowledgeItemSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -345,8 +346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "base64Image is required" });
       }
 
-      // Process image with AI
-      const processedContent = await processImageContent(base64Image, fileName);
+      // Process image with Gemini Flash for faster response
+      const processedContent = await processImageWithGemini(base64Image, fileName);
       
       res.json(processedContent);
     } catch (error) {
