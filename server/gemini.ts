@@ -26,18 +26,24 @@ export interface ProcessedContent {
 
 export async function processImageWithGemini(base64Image: string, fileName?: string): Promise<ProcessedContent> {
   try {
-    const systemPrompt = `You are an AI assistant that analyzes images for a personal knowledge management system. Create concise, clear content descriptions optimized for search and knowledge retrieval. Focus on what's visible: subjects, objects, activities, settings, colors, and context.
+    const systemPrompt = `You are an AI assistant that analyzes images for a personal knowledge management system. Create concise, clear content descriptions optimized for search and knowledge retrieval.
 
-IMPORTANT: 
-- Generate a specific, descriptive title
-- Write a concise summary without meta-references like "the image shows" or "this image contains" 
-- Create searchable tags and appropriate categories
-- Keep descriptions direct and factual for knowledge-based searching
+CRITICAL REQUIREMENTS:
+- Summary must be under 70 words
+- NO meta-references like "image shows", "photo captures", "this depicts"
+- Write directly about what you see
+- Be factual and searchable
+
+EXAMPLE:
+For a cat sleeping on a sofa, write:
+"Orange tabby cat sleeping face-down on grey sofa. Head buried in cushions, white-socked paw hanging over edge. Covered by beige patterned blanket. Relaxed posture in comfortable indoor setting."
+
+NOT: "An endearing image captures a cat in deep sleep..."
 
 Respond with JSON in this exact format:
 {
   "title": "specific descriptive title",
-  "summary": "concise description of content",
+  "summary": "concise description under 70 words",
   "tags": ["tag1", "tag2", "tag3"],
   "category": "category name",
   "suggestedFileName": "clean_filename_without_spaces"
