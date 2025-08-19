@@ -9,13 +9,12 @@ import {
 import { ObjectPermission } from "./objectAcl";
 import {
   processTextContent,
-  processImageContent,
+  processImageWithGemini,
   processDocumentContent,
   transcribeAudio,
   searchKnowledgeBase,
   processLinkContent,
-} from "./openai";
-import { processImageWithGemini } from "./gemini";
+} from "./gemini";
 import { insertKnowledgeItemSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -341,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (mimeType.startsWith("image/")) {
           const imageBuffer = fs.readFileSync(filePath);
           const base64Image = imageBuffer.toString("base64");
-          processedContent = await processImageContent(base64Image, fileName);
+          processedContent = await processImageWithGemini(base64Image, fileName);
         } else if (mimeType.startsWith("audio/")) {
           const transcription = await transcribeAudio(filePath);
           processedContent = await processTextContent(transcription.text);
@@ -398,7 +397,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process web link with enhanced video and thumbnail support
+  // Process image content with Gemini AI  
+  app.post("/api/process-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const { base64Image, fileName, fileSize, mimeType } = req.body;
+      
+      if (!base64Image || typeof base64Image !== "string") {
+        return res.status(400).json({ error: "Base64 image data is required" });
+      }
+      
+      const processedContent = await processImageWithGemini(base64Image, fileName);
+      res.json(processedContent);
+    } catch (error) {
+      console.error("Error processing image:", error);
+      res.status(500).json({ error: "Failed to process image content" });
+    }
+  });
+
+  // Process web link with enhanced video and thumbnail support using Gemini AI
   app.post("/api/process-link", isAuthenticated, async (req: any, res) => {
     try {
       const { url } = req.body;
