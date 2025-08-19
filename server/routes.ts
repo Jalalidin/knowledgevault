@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI-powered natural language search
+  // AI-powered natural language search with smart fallback
   app.get("/api/search-ai", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -231,20 +231,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Query parameter 'q' is required" });
       }
 
-      // Get all user's knowledge items for AI search
-      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
-      
-      // Use AI to find relevant items
-      const relevantItems = await searchKnowledgeBase(query, allItems);
-      
-      res.json(relevantItems);
+      // First try smart pattern matching for common queries
+      const smartResults = await handleSmartQuery(userId, query);
+      if (smartResults) {
+        return res.json(smartResults);
+      }
+
+      // If no smart match, try OpenAI search
+      try {
+        const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+        const relevantItems = await searchKnowledgeBase(query, allItems);
+        res.json(relevantItems);
+      } catch (aiError) {
+        console.error("OpenAI search failed, using smart fallback:", aiError);
+        // Fallback to enhanced keyword search
+        const fallbackResults = await storage.searchKnowledgeItems(userId, query);
+        res.json(fallbackResults);
+      }
     } catch (error) {
       console.error("Error in AI search:", error);
-      // Return empty results instead of error for AI search
-      // This prevents the UI from breaking when AI service is unavailable
       res.json([]);
     }
   });
+
+  // Smart query handler for common patterns
+  async function handleSmartQuery(userId: string, query: string): Promise<any[] | null> {
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // Pattern: "list all [type]" or "show me [type]" or "find [type]"
+    const typePatterns = {
+      'image': /(?:list all|show me|find|get).*(?:image|picture|photo)s?/i,
+      'document': /(?:list all|show me|find|get).*(?:document|doc|file|pdf)s?/i,
+      'video': /(?:list all|show me|find|get).*(?:video|movie|clip)s?/i,
+      'audio': /(?:list all|show me|find|get).*(?:audio|sound|music|recording)s?/i,
+      'link': /(?:list all|show me|find|get).*(?:link|url|website|web)s?/i,
+      'text': /(?:list all|show me|find|get).*(?:text|note|writing)s?/i
+    };
+    
+    // Check for type-based queries
+    for (const [type, pattern] of Object.entries(typePatterns)) {
+      if (pattern.test(lowerQuery)) {
+        return await storage.searchKnowledgeItemsWithFilters(userId, '', type);
+      }
+    }
+    
+    // Pattern: "from [time period]"
+    if (lowerQuery.includes('from last') || lowerQuery.includes('from this')) {
+      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+      const now = new Date();
+      
+      if (lowerQuery.includes('week')) {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return allItems.filter(item => new Date(item.createdAt || new Date()) > weekAgo);
+      } else if (lowerQuery.includes('month')) {
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return allItems.filter(item => new Date(item.createdAt || new Date()) > monthAgo);
+      } else if (lowerQuery.includes('day')) {
+        const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        return allItems.filter(item => new Date(item.createdAt || new Date()) > dayAgo);
+      }
+    }
+    
+    // Pattern: "everything" or "all items" or "all content"
+    if (/(?:everything|all items|all content|show all)/i.test(lowerQuery)) {
+      return await storage.getKnowledgeItemsByUser(userId, 100);
+    }
+    
+    return null; // No smart pattern matched
+  }
 
   // Legacy search endpoint (for backward compatibility)
   app.get("/api/search", isAuthenticated, async (req: any, res) => {
