@@ -201,8 +201,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Search knowledge items
-  app.get("/api/search", isAuthenticated, async (req: any, res) => {
+  // Filter-based search (database search)
+  app.get("/api/search-filter", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const query = req.query.q as string;
+      const type = req.query.type as string;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Query parameter 'q' is required" });
+      }
+
+      // Use enhanced database search with type filtering
+      const items = await storage.searchKnowledgeItemsWithFilters(userId, query, type);
+      res.json(items);
+    } catch (error) {
+      console.error("Error in filter search:", error);
+      res.status(500).json({ error: "Failed to search knowledge items" });
+    }
+  });
+
+  // AI-powered natural language search
+  app.get("/api/search-ai", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const query = req.query.q as string;
@@ -219,16 +239,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(relevantItems);
     } catch (error) {
-      console.error("Error searching knowledge items:", error);
-      // Fallback to database search
-      try {
-        const userId = req.user.claims.sub;
-        const query = req.query.q as string;
-        const items = await storage.searchKnowledgeItems(userId, query);
-        res.json(items);
-      } catch (fallbackError) {
-        res.status(500).json({ error: "Failed to search knowledge items" });
+      console.error("Error in AI search:", error);
+      // Return empty results instead of error for AI search
+      // This prevents the UI from breaking when AI service is unavailable
+      res.json([]);
+    }
+  });
+
+  // Legacy search endpoint (for backward compatibility)
+  app.get("/api/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const query = req.query.q as string;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Query parameter 'q' is required" });
       }
+
+      // Default to filter search for legacy endpoint
+      const items = await storage.searchKnowledgeItems(userId, query);
+      res.json(items);
+    } catch (error) {
+      console.error("Error searching knowledge items:", error);
+      res.status(500).json({ error: "Failed to search knowledge items" });
     }
   });
 

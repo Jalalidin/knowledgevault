@@ -206,6 +206,97 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  // Enhanced search with type filtering and tag search
+  async searchKnowledgeItemsWithFilters(
+    userId: string, 
+    query: string, 
+    type?: string
+  ): Promise<KnowledgeItemWithTags[]> {
+    const searchTerm = `%${query.toLowerCase()}%`;
+    
+    // Build the where condition
+    const conditions = [
+      eq(knowledgeItems.userId, userId),
+      or(
+        ilike(knowledgeItems.title, searchTerm),
+        ilike(knowledgeItems.summary, searchTerm),
+        ilike(knowledgeItems.content, searchTerm)
+      )
+    ];
+    
+    // Add type filter if specified and not 'all'
+    if (type && type !== 'all') {
+      conditions.push(eq(knowledgeItems.type, type));
+    }
+    
+    const items = await db
+      .select()
+      .from(knowledgeItems)
+      .where(and(...conditions))
+      .orderBy(desc(knowledgeItems.createdAt));
+
+    // Also search in tags
+    const tagConditions = [
+      eq(knowledgeItems.userId, userId),
+      ilike(tags.name, searchTerm)
+    ];
+    
+    if (type && type !== 'all') {
+      tagConditions.push(eq(knowledgeItems.type, type));
+    }
+    
+    const tagSearchResults = await db
+      .select({
+        knowledgeItem: knowledgeItems,
+      })
+      .from(knowledgeItems)
+      .innerJoin(knowledgeItemTags, eq(knowledgeItems.id, knowledgeItemTags.knowledgeItemId))
+      .innerJoin(tags, eq(knowledgeItemTags.tagId, tags.id))
+      .where(and(...tagConditions));
+
+    // Combine results and remove duplicates
+    const allItems = [
+      ...items,
+      ...tagSearchResults.map(result => result.knowledgeItem)
+    ];
+    
+    const uniqueItems = allItems.filter((item, index, self) => 
+      index === self.findIndex(i => i.id === item.id)
+    );
+
+    // Get tags for all results
+    const itemIds = uniqueItems.map(item => item.id);
+    if (itemIds.length === 0) return [];
+
+    const allTags = await db
+      .select({
+        knowledgeItemId: knowledgeItemTags.knowledgeItemId,
+        tagId: knowledgeItemTags.tagId,
+        tag: tags,
+      })
+      .from(knowledgeItemTags)
+      .innerJoin(tags, eq(knowledgeItemTags.tagId, tags.id))
+      .where(inArray(knowledgeItemTags.knowledgeItemId, itemIds));
+
+    // Group tags by knowledge item
+    const tagsByItem = allTags.reduce((acc, t) => {
+      if (!acc[t.knowledgeItemId]) acc[t.knowledgeItemId] = [];
+      acc[t.knowledgeItemId].push({
+        knowledgeItemId: t.knowledgeItemId,
+        tagId: t.tagId,
+        tag: t.tag!,
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    return uniqueItems.map(item => ({
+      ...item,
+      knowledgeItemTags: tagsByItem[item.id] || [],
+    })).sort((a, b) => 
+      new Date(b.createdAt || new Date()).getTime() - new Date(a.createdAt || new Date()).getTime()
+    );
+  }
+
   // Tag operations
   async createTag(tag: InsertTag): Promise<Tag> {
     const [newTag] = await db
