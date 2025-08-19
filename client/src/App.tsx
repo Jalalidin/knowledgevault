@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
-import Chat from "@/pages/chat";
+import ImprovedChat from "@/pages/improved-chat";
 import Settings from "@/pages/settings";
 
 function Router() {
@@ -20,7 +20,7 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Home} />
-          <Route path="/chat" component={Chat} />
+          <Route path="/chat" component={ImprovedChat} />
           <Route path="/settings" component={Settings} />
         </>
       )}

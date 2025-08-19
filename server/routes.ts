@@ -597,7 +597,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Send a message and get AI response (RAG)
+  // Streaming chat endpoint
+  app.post("/api/conversations/:id/messages/stream", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id: conversationId } = req.params;
+      const { content } = req.body;
+      
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Message content is required" });
+      }
+      
+      // Verify conversation belongs to user
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      // Set up Server-Sent Events
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control'
+      });
+      
+      // Save user message
+      const userMessageData = insertChatMessageSchema.parse({
+        conversationId,
+        role: "user",
+        content,
+      });
+      
+      const userMessage = await storage.addMessageToConversation(userMessageData);
+      
+      // Send user message confirmation
+      res.write(`data: ${JSON.stringify({ type: 'user_message', message: userMessage })}\n\n`);
+      
+      // Get user's AI settings
+      const userSettings = await storage.getUserAiSettings(userId);
+      
+      // Retrieve relevant knowledge items
+      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+      const relevantItems = await searchKnowledgeBase(content, allItems);
+      
+      // Send sources info
+      res.write(`data: ${JSON.stringify({ 
+        type: 'sources', 
+        sources: relevantItems.map(item => ({
+          id: item.id,
+          title: item.title,
+          type: item.type,
+        }))
+      })}\n\n`);
+      
+      let fullResponse = '';
+      
+      // Generate AI response using RAG with streaming
+      const ragResponse = await aiService.generateRagResponseStream(
+        content,
+        relevantItems,
+        userSettings || undefined,
+        (chunk: string) => {
+          fullResponse += chunk;
+          res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
+        }
+      );
+      
+      // Save AI response
+      const aiMessageData = insertChatMessageSchema.parse({
+        conversationId,
+        role: "assistant",
+        content: fullResponse,
+        metadata: {
+          sources: ragResponse.sources.map(item => ({
+            id: item.id,
+            title: item.title,
+            type: item.type,
+          })),
+          model: ragResponse.model,
+          provider: ragResponse.provider,
+        },
+      });
+      
+      const aiMessage = await storage.addMessageToConversation(aiMessageData);
+      
+      // Send completion
+      res.write(`data: ${JSON.stringify({ 
+        type: 'complete', 
+        message: aiMessage,
+        sources: ragResponse.sources
+      })}\n\n`);
+      
+      res.end();
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to process message' })}\n\n`);
+      res.end();
+    }
+  });
+
+  // Legacy non-streaming chat endpoint
   app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;

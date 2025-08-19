@@ -8,10 +8,23 @@ export interface AiProvider {
     context: string,
     settings?: any
   ): Promise<string>;
+  
+  generateStreamingResponse(
+    prompt: string,
+    context: string,
+    settings?: any,
+    onChunk?: (chunk: string) => void
+  ): Promise<string>;
 }
 
 export interface RagResponse {
   response: string;
+  sources: KnowledgeItemWithTags[];
+  model: string;
+  provider: string;
+}
+
+export interface StreamingRagResponse {
   sources: KnowledgeItemWithTags[];
   model: string;
   provider: string;
@@ -54,6 +67,52 @@ Please provide a helpful and accurate response based on the available context.`;
       });
 
       return response.text || "I'm sorry, I couldn't generate a response.";
+    } catch (error) {
+      console.error("Gemini API error:", error);
+      throw new Error(`Gemini API error: ${error}`);
+    }
+  }
+
+  async generateStreamingResponse(
+    prompt: string,
+    context: string,
+    settings: any = {},
+    onChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const { model = "gemini-2.5-flash", temperature = 0.7 } = settings;
+    
+    const systemPrompt = `You are a knowledgeable AI assistant helping users understand their personal knowledge base. Use the provided context to answer questions accurately and comprehensively.
+
+IMPORTANT INSTRUCTIONS:
+- Base your answers primarily on the provided context
+- If the context doesn't contain enough information, clearly state this
+- Be conversational and helpful
+- Cite specific sources when possible
+- If asked about something not in the context, politely explain the limitation
+
+Context from knowledge base:
+${context}
+
+User question: ${prompt}
+
+Please provide a helpful and accurate response based on the available context.`;
+
+    try {
+      const response = await this.ai.models.generateContentStream({
+        model,
+        contents: systemPrompt,
+      });
+
+      let fullResponse = "";
+      for await (const chunk of response) {
+        const text = chunk.text;
+        if (text) {
+          fullResponse += text;
+          onChunk?.(text);
+        }
+      }
+
+      return fullResponse || "I'm sorry, I couldn't generate a response.";
     } catch (error) {
       console.error("Gemini API error:", error);
       throw new Error(`Gemini API error: ${error}`);
@@ -103,6 +162,58 @@ ${context}`
       });
 
       return response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+    } catch (error) {
+      console.error("OpenAI API error:", error);
+      throw new Error(`OpenAI API error: ${error}`);
+    }
+  }
+
+  async generateStreamingResponse(
+    prompt: string,
+    context: string,
+    settings: any = {},
+    onChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const { model = "gpt-4o", temperature = 0.7, maxTokens = 1000 } = settings;
+    
+    try {
+      const response = await this.openai.chat.completions.create({
+        model,
+        temperature,
+        max_tokens: maxTokens,
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content: `You are a knowledgeable AI assistant helping users understand their personal knowledge base. Use the provided context to answer questions accurately and comprehensively.
+
+IMPORTANT INSTRUCTIONS:
+- Base your answers primarily on the provided context
+- If the context doesn't contain enough information, clearly state this
+- Be conversational and helpful
+- Cite specific sources when possible
+- If asked about something not in the context, politely explain the limitation
+
+Context from knowledge base:
+${context}`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+      });
+
+      let fullResponse = "";
+      for await (const chunk of response) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          fullResponse += content;
+          onChunk?.(content);
+        }
+      }
+
+      return fullResponse || "I'm sorry, I couldn't generate a response.";
     } catch (error) {
       console.error("OpenAI API error:", error);
       throw new Error(`OpenAI API error: ${error}`);
@@ -161,6 +272,43 @@ export class AiService {
 
     return {
       response,
+      sources: relevantItems,
+      model,
+      provider,
+    };
+  }
+
+  async generateRagResponseStream(
+    userQuestion: string,
+    relevantItems: KnowledgeItemWithTags[],
+    userSettings?: UserAiSettings,
+    onChunk?: (chunk: string) => void
+  ): Promise<StreamingRagResponse> {
+    // Use user settings or fallback to defaults
+    const provider = userSettings?.preferredProvider || "gemini";
+    const model = userSettings?.preferredModel || "gemini-2.5-flash";
+    const chatSettings = userSettings?.chatSettings || {};
+    const customApiKeys = userSettings?.customApiKeys as any;
+    
+    // Get the appropriate API key
+    let apiKey: string | undefined;
+    if (customApiKeys && customApiKeys[provider]) {
+      apiKey = customApiKeys[provider];
+    }
+
+    // Create context from relevant knowledge items
+    const context = this.createContext(relevantItems);
+    
+    // Get the AI provider and generate streaming response
+    const aiProvider = this.getProvider(provider, apiKey);
+    await aiProvider.generateStreamingResponse(
+      userQuestion,
+      context,
+      { model, ...chatSettings },
+      onChunk
+    );
+
+    return {
       sources: relevantItems,
       model,
       provider,
