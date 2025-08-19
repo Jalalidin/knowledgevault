@@ -127,6 +127,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata = { ...metadata, ...req.body.videoInfo };
       }
       
+      // Normalize category if provided
+      let normalizedCategory = req.body.category;
+      if (normalizedCategory) {
+        normalizedCategory = await storage.normalizeCategory(userId, normalizedCategory);
+        // Store category in metadata since schema doesn't have direct category field
+        metadata.category = normalizedCategory;
+      }
+      
       const itemData = insertKnowledgeItemSchema.parse({
         ...req.body,
         userId,
@@ -440,24 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process image with AI before upload
-  app.post("/api/process-image", isAuthenticated, async (req: any, res) => {
-    try {
-      const { base64Image, fileName, fileSize, mimeType } = req.body;
-      
-      if (!base64Image) {
-        return res.status(400).json({ error: "base64Image is required" });
-      }
-
-      // Process image with Gemini Flash for faster response
-      const processedContent = await processImageWithGemini(base64Image, fileName);
-      
-      res.json(processedContent);
-    } catch (error) {
-      console.error("Error processing image:", error);
-      res.status(500).json({ error: "Failed to process image with AI" });
-    }
-  });
+  // Duplicate endpoint removed - using the one above
 
   // Set object ACL after upload
   app.post("/api/set-object-acl", isAuthenticated, async (req: any, res) => {

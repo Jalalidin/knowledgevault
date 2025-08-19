@@ -14,7 +14,7 @@ import {
   type KnowledgeItemWithTags,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, ilike, inArray } from "drizzle-orm";
+import { eq, desc, and, or, ilike, inArray, isNotNull } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -35,6 +35,7 @@ export interface IStorage {
   createTag(tag: InsertTag): Promise<Tag>;
   getTagsByUser(userId: string): Promise<Tag[]>;
   getOrCreateTags(userId: string, tagNames: string[]): Promise<Tag[]>;
+  normalizeCategory(userId: string, suggestedCategory: string): Promise<string>;
   
   // Knowledge item tag operations
   addTagsToKnowledgeItem(knowledgeItemId: string, tagIds: string[]): Promise<void>;
@@ -317,23 +318,41 @@ export class DatabaseStorage implements IStorage {
   async getOrCreateTags(userId: string, tagNames: string[]): Promise<Tag[]> {
     if (tagNames.length === 0) return [];
 
-    // Get existing tags
-    const existingTags = await db
+    // Get all existing tags for the user
+    const allExistingTags = await db
       .select()
       .from(tags)
-      .where(
-        and(
-          eq(tags.userId, userId),
-          inArray(tags.name, tagNames)
-        )
+      .where(eq(tags.userId, userId));
+
+    const resultTags: Tag[] = [];
+    const tagsToCreate: string[] = [];
+
+    for (const suggestedTagName of tagNames) {
+      // First try exact match (case insensitive)
+      let matchedTag = allExistingTags.find(t => 
+        t.name.toLowerCase() === suggestedTagName.toLowerCase()
       );
 
-    const existingTagNames = existingTags.map(t => t.name);
-    const newTagNames = tagNames.filter(name => !existingTagNames.includes(name));
+      // If no exact match, try similarity matching
+      if (!matchedTag) {
+        matchedTag = this.findSimilarTag(suggestedTagName, allExistingTags);
+      }
+
+      if (matchedTag) {
+        // Use existing similar tag
+        if (!resultTags.find(t => t.id === matchedTag!.id)) {
+          resultTags.push(matchedTag);
+        }
+      } else {
+        // Mark for creation
+        if (!tagsToCreate.includes(suggestedTagName)) {
+          tagsToCreate.push(suggestedTagName);
+        }
+      }
+    }
 
     // Create new tags
-    const newTags: Tag[] = [];
-    for (const tagName of newTagNames) {
+    for (const tagName of tagsToCreate) {
       const [newTag] = await db
         .insert(tags)
         .values({
@@ -342,10 +361,155 @@ export class DatabaseStorage implements IStorage {
           color: getRandomTagColor(),
         })
         .returning();
-      newTags.push(newTag);
+      resultTags.push(newTag);
     }
 
-    return [...existingTags, ...newTags];
+    return resultTags;
+  }
+
+  private findSimilarTag(suggestedName: string, existingTags: Tag[]): Tag | undefined {
+    const suggested = suggestedName.toLowerCase().trim();
+    
+    // Check for common variations and abbreviations
+    const variations: Record<string, string[]> = {
+      'technology': ['tech', 'technologies'],
+      'tech': ['technology', 'technologies'],
+      'programming': ['coding', 'development', 'dev'],
+      'coding': ['programming', 'development', 'dev'],
+      'development': ['programming', 'coding', 'dev'],
+      'dev': ['development', 'programming', 'coding'],
+      'javascript': ['js'],
+      'js': ['javascript'],
+      'typescript': ['ts'],
+      'ts': ['typescript'],
+      'python': ['py'],
+      'py': ['python'],
+      'artificial intelligence': ['ai', 'machine learning', 'ml'],
+      'ai': ['artificial intelligence', 'machine learning', 'ml'],
+      'machine learning': ['ai', 'artificial intelligence', 'ml'],
+      'ml': ['machine learning', 'ai', 'artificial intelligence'],
+      'image': ['images', 'picture', 'pictures', 'photo', 'photos'],
+      'images': ['image', 'picture', 'pictures', 'photo', 'photos'],
+      'picture': ['pictures', 'image', 'images', 'photo', 'photos'],
+      'pictures': ['picture', 'image', 'images', 'photo', 'photos'],
+      'photo': ['photos', 'image', 'images', 'picture', 'pictures'],
+      'photos': ['photo', 'image', 'images', 'picture', 'pictures'],
+      'document': ['documents', 'doc', 'docs', 'file', 'files'],
+      'documents': ['document', 'doc', 'docs', 'file', 'files'],
+      'doc': ['docs', 'document', 'documents'],
+      'docs': ['doc', 'document', 'documents'],
+      'video': ['videos', 'movie', 'movies', 'clip', 'clips'],
+      'videos': ['video', 'movie', 'movies', 'clip', 'clips'],
+      'audio': ['sound', 'music', 'recording', 'recordings'],
+      'music': ['audio', 'sound'],
+    };
+
+    // Check if the suggested name has known variations
+    const possibleMatches = variations[suggested] || [];
+    
+    for (const existing of existingTags) {
+      const existingName = existing.name.toLowerCase().trim();
+      
+      // Check if existing tag matches any variation of suggested
+      if (possibleMatches.includes(existingName)) {
+        return existing;
+      }
+      
+      // Check if suggested matches any variation of existing
+      const existingVariations = variations[existingName] || [];
+      if (existingVariations.includes(suggested)) {
+        return existing;
+      }
+      
+      // Check for substring matches (e.g., "web" matches "web development")
+      if (existingName.includes(suggested) || suggested.includes(existingName)) {
+        // Only match if one is a meaningful substring of the other (length > 2)
+        if (Math.min(suggested.length, existingName.length) > 2) {
+          return existing;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  async normalizeCategory(userId: string, suggestedCategory: string): Promise<string> {
+    // Note: Category is stored in metadata.category since schema doesn't have a direct category field
+    // We'll extract categories from the metadata field
+    const existingItems = await db
+      .select({ metadata: knowledgeItems.metadata })
+      .from(knowledgeItems)
+      .where(
+        and(
+          eq(knowledgeItems.userId, userId),
+          isNotNull(knowledgeItems.metadata)
+        )
+      );
+
+    const existingCategories = existingItems
+      .map(item => {
+        const metadata = item.metadata as any;
+        return metadata?.category;
+      })
+      .filter(Boolean) as string[];
+
+    const suggested = suggestedCategory.toLowerCase().trim();
+    
+    // First try exact match (case insensitive)
+    const exactMatch = existingCategories.find(cat => 
+      cat.toLowerCase() === suggested
+    );
+    if (exactMatch) return exactMatch;
+
+    // Check for similar categories
+    const categoryVariations: Record<string, string[]> = {
+      'technology': ['tech', 'technologies'],
+      'tech': ['technology', 'technologies'],
+      'programming': ['coding', 'development'],
+      'coding': ['programming', 'development'],
+      'development': ['programming', 'coding'],
+      'artificial intelligence': ['ai', 'machine learning'],
+      'ai': ['artificial intelligence', 'machine learning'],
+      'machine learning': ['ai', 'artificial intelligence'],
+      'images': ['image', 'pictures', 'photos'],
+      'image': ['images', 'pictures', 'photos'],
+      'pictures': ['image', 'images', 'photos'],
+      'photos': ['image', 'images', 'pictures'],
+      'documents': ['document', 'files'],
+      'document': ['documents', 'files'],
+      'files': ['document', 'documents'],
+      'videos': ['video', 'movies'],
+      'video': ['videos', 'movies'],
+      'movies': ['video', 'videos'],
+      'audio': ['sound', 'music'],
+      'music': ['audio', 'sound'],
+      'web links': ['links', 'websites', 'urls'],
+      'links': ['web links', 'websites', 'urls'],
+      'websites': ['web links', 'links', 'urls'],
+      'urls': ['web links', 'links', 'websites'],
+    };
+
+    const possibleMatches = categoryVariations[suggested] || [];
+    
+    for (const existing of existingCategories) {
+      const existingName = existing.toLowerCase().trim();
+      
+      // Check if existing category matches any variation of suggested
+      if (possibleMatches.includes(existingName)) {
+        return existing;
+      }
+      
+      // Check if suggested matches any variation of existing
+      const existingVariations = categoryVariations[existingName] || [];
+      if (existingVariations.includes(suggested)) {
+        return existing;
+      }
+    }
+
+    // If no match found, return the suggested category with proper capitalization
+    return suggestedCategory.split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   }
 
   // Knowledge item tag operations
