@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogHeader, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,26 +20,59 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<"filter" | "ai">("filter");
   const [filterType, setFilterType] = useState<string>("all");
+  const [shouldSearch, setShouldSearch] = useState(false);
 
-  // Debounce search query
+  // Debounce search query for filter mode, immediate for AI mode
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 300);
+    if (searchMode === "filter") {
+      const timer = setTimeout(() => {
+        setDebouncedQuery(query);
+        setShouldSearch(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [query, searchMode]);
 
-    return () => clearTimeout(timer);
-  }, [query]);
+  // Handle AI search on Enter key
+  const handleAISearch = () => {
+    if (searchMode === "ai" && query.trim()) {
+      setDebouncedQuery(query);
+      setShouldSearch(true);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && searchMode === "ai") {
+      e.preventDefault();
+      handleAISearch();
+    }
+  };
 
   // Reset query when modal opens
   useEffect(() => {
     if (isOpen) {
       setQuery(initialQuery);
+      setShouldSearch(false);
+      setDebouncedQuery("");
     }
   }, [isOpen, initialQuery]);
 
+  // Reset search when switching modes
+  useEffect(() => {
+    setShouldSearch(false);
+    setDebouncedQuery("");
+    if (searchMode === "filter" && query.trim()) {
+      // Auto-trigger filter search when switching to filter mode
+      setTimeout(() => {
+        setDebouncedQuery(query);
+        setShouldSearch(true);
+      }, 100);
+    }
+  }, [searchMode]);
+
   const { data: searchResults, isLoading } = useQuery<KnowledgeItemWithTags[]>({
     queryKey: [searchMode === "ai" ? "/api/search-ai" : "/api/search-filter", { q: debouncedQuery, type: filterType, mode: searchMode }],
-    enabled: isOpen && debouncedQuery.length > 0,
+    enabled: isOpen && debouncedQuery.length > 0 && shouldSearch,
   });
 
   const getFileIcon = (type: string, mimeType?: string) => {
@@ -95,6 +128,7 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
           <i className="fas fa-times text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 text-sm"></i>
         </button>
         <DialogHeader>
+          <DialogTitle className="sr-only">Search Knowledge Base</DialogTitle>
           <DialogDescription className="sr-only">
             Search your knowledge base using filter mode for exact matches or AI mode for natural language queries
           </DialogDescription>
@@ -153,9 +187,10 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
             <div className="flex-1 relative">
               <Input
                 type="text"
-                placeholder={searchMode === "ai" ? "Ask anything about your knowledge... (e.g., 'Find my Python tutorials from last week')" : "Search by title, content, or tags..."}
+                placeholder={searchMode === "ai" ? "Ask anything about your knowledge... (Press Enter to search)" : "Search by title, content, or tags..."}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="w-full pl-12 pr-12 py-3 text-lg"
                 autoFocus
                 data-testid="input-search"
@@ -167,11 +202,27 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("");
+                    setShouldSearch(false);
+                    setDebouncedQuery("");
+                  }}
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
                   data-testid="button-clear-search"
                 >
                   <i className="fas fa-times text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"></i>
+                </Button>
+              )}
+              
+              {searchMode === "ai" && query.trim() && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAISearch}
+                  className="absolute right-12 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-purple-100 dark:hover:bg-purple-900/20 text-purple-600"
+                  data-testid="button-ai-search"
+                >
+                  <i className="fas fa-search"></i>
                 </Button>
               )}
             </div>
@@ -223,9 +274,10 @@ export default function SearchModal({ isOpen, onClose, initialQuery = "" }: Sear
                 {searchMode === "ai" ? (
                   <div className="space-y-1">
                     <p className="font-medium text-purple-600 dark:text-purple-400">Try asking:</p>
-                    <p>• "Show me my Python notes from last month"</p>
-                    <p>• "Find videos about machine learning"</p>
-                    <p>• "What documents mention React hooks?"</p>
+                    <p>• "List all images"</p>
+                    <p>• "Show me my documents from last week"</p>
+                    <p>• "Find videos about tutorials"</p>
+                    <p className="text-xs text-gray-500 mt-2">💡 Press Enter to search</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
