@@ -9,6 +9,8 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { MessageSquare, Settings } from "lucide-react";
 
 interface NavigationProps {
   onSearch: (query: string) => void;
@@ -17,6 +19,7 @@ interface NavigationProps {
 export default function Navigation({ onSearch }: NavigationProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [location] = useLocation();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +31,8 @@ export default function Navigation({ onSearch }: NavigationProps) {
   const handleLogout = () => {
     window.location.href = "/api/logout";
   };
+
+  const isActive = (path: string) => location === path;
 
   const getUserInitials = () => {
     const typedUser = user as any;
@@ -45,16 +50,44 @@ export default function Navigation({ onSearch }: NavigationProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <div className="flex justify-between h-20">
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                <i className="fas fa-brain text-white text-lg"></i>
+            <Link href="/">
+              <div className="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                  <i className="fas fa-brain text-white text-lg"></i>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                    KnowledgeVault
+                  </h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">AI-Powered Knowledge</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                  KnowledgeVault
-                </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">AI-Powered Knowledge</p>
-              </div>
+            </Link>
+            
+            {/* Navigation Links */}
+            <div className="hidden md:flex items-center space-x-2 ml-8">
+              <Link href="/chat">
+                <Button
+                  variant={isActive("/chat") ? "default" : "ghost"}
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="nav-chat"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Chat
+                </Button>
+              </Link>
+              <Link href="/settings">
+                <Button
+                  variant={isActive("/settings") ? "default" : "ghost"}
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="nav-settings"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Button>
+              </Link>
             </div>
           </div>
           

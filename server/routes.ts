@@ -15,7 +15,8 @@ import {
   searchKnowledgeBase,
   processLinkContent,
 } from "./gemini";
-import { insertKnowledgeItemSchema } from "@shared/schema";
+import { insertKnowledgeItemSchema, insertConversationSchema, insertChatMessageSchema } from "@shared/schema";
+import { aiService } from "./ai-service";
 import { z } from "zod";
 import multer from "multer";
 import fs from "fs";
@@ -522,6 +523,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching tags:", error);
       res.status(500).json({ error: "Failed to fetch tags" });
+    }
+  });
+
+  // RAG Chat endpoints
+  
+  // Start a new conversation
+  app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { title } = req.body;
+      
+      if (!title || typeof title !== "string") {
+        return res.status(400).json({ error: "Title is required" });
+      }
+      
+      const conversationData = insertConversationSchema.parse({
+        title,
+        userId,
+      });
+      
+      const conversation = await storage.createConversation(conversationData);
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ error: "Failed to create conversation" });
+    }
+  });
+  
+  // Get user's conversations
+  app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversations = await storage.getConversationsByUser(userId);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+  
+  // Get a specific conversation with messages
+  app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ error: "Failed to fetch conversation" });
+    }
+  });
+  
+  // Delete a conversation
+  app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteConversation(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      res.status(500).json({ error: "Failed to delete conversation" });
+    }
+  });
+  
+  // Send a message and get AI response (RAG)
+  app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id: conversationId } = req.params;
+      const { content } = req.body;
+      
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Message content is required" });
+      }
+      
+      // Verify conversation belongs to user
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation || conversation.userId !== userId) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      // Save user message
+      const userMessageData = insertChatMessageSchema.parse({
+        conversationId,
+        role: "user",
+        content,
+      });
+      
+      const userMessage = await storage.addMessageToConversation(userMessageData);
+      
+      // Get user's AI settings
+      const userSettings = await storage.getUserAiSettings(userId);
+      
+      // Retrieve relevant knowledge items
+      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+      const relevantItems = await searchKnowledgeBase(content, allItems);
+      
+      // Generate AI response using RAG
+      const ragResponse = await aiService.generateRagResponse(
+        content,
+        relevantItems,
+        userSettings || undefined
+      );
+      
+      // Save AI response
+      const aiMessageData = insertChatMessageSchema.parse({
+        conversationId,
+        role: "assistant",
+        content: ragResponse.response,
+        metadata: {
+          sources: ragResponse.sources.map(item => ({
+            id: item.id,
+            title: item.title,
+            type: item.type,
+          })),
+          model: ragResponse.model,
+          provider: ragResponse.provider,
+        },
+      });
+      
+      const aiMessage = await storage.addMessageToConversation(aiMessageData);
+      
+      res.json({
+        userMessage,
+        aiMessage: {
+          ...aiMessage,
+          sources: ragResponse.sources,
+        },
+      });
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+      res.status(500).json({ error: "Failed to process message" });
+    }
+  });
+  
+  // User AI settings endpoints
+  
+  // Get user's AI settings
+  app.get("/api/ai-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getUserAiSettings(userId);
+      
+      // Don't send API keys in response, only indicate if they exist
+      if (settings && settings.customApiKeys) {
+        const apiKeys = settings.customApiKeys as any;
+        const maskedKeys: any = {};
+        
+        for (const [provider, key] of Object.entries(apiKeys)) {
+          if (key && typeof key === "string") {
+            maskedKeys[provider] = key.slice(0, 8) + "***masked***";
+          }
+        }
+        
+        res.json({
+          ...settings,
+          customApiKeys: maskedKeys,
+        });
+      } else {
+        res.json(settings || {
+          preferredProvider: "gemini",
+          preferredModel: "gemini-2.5-flash",
+          customApiKeys: {},
+          chatSettings: {},
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching AI settings:", error);
+      res.status(500).json({ error: "Failed to fetch AI settings" });
+    }
+  });
+  
+  // Update user's AI settings
+  app.put("/api/ai-settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { preferredProvider, preferredModel, customApiKeys, chatSettings } = req.body;
+      
+      const settingsData = {
+        userId,
+        preferredProvider: preferredProvider || "gemini",
+        preferredModel: preferredModel || "gemini-2.5-flash",
+        customApiKeys: customApiKeys || {},
+        chatSettings: chatSettings || {},
+      };
+      
+      const settings = await storage.upsertUserAiSettings(settingsData);
+      
+      // Don't send API keys back
+      const response = { ...settings };
+      if (response.customApiKeys) {
+        const apiKeys = response.customApiKeys as any;
+        const maskedKeys: any = {};
+        
+        for (const [provider, key] of Object.entries(apiKeys)) {
+          if (key && typeof key === "string") {
+            maskedKeys[provider] = key.slice(0, 8) + "***masked***";
+          }
+        }
+        
+        response.customApiKeys = maskedKeys;
+      }
+      
+      res.json(response);
+    } catch (error) {
+      console.error("Error updating AI settings:", error);
+      res.status(500).json({ error: "Failed to update AI settings" });
+    }
+  });
+  
+  // Get available AI models
+  app.get("/api/ai-models", isAuthenticated, (req: any, res) => {
+    try {
+      const providers = aiService.getSupportedProviders();
+      const models: Record<string, string[]> = {};
+      
+      for (const provider of providers) {
+        models[provider] = aiService.getAvailableModels(provider);
+      }
+      
+      res.json({
+        providers,
+        models,
+      });
+    } catch (error) {
+      console.error("Error fetching AI models:", error);
+      res.status(500).json({ error: "Failed to fetch AI models" });
     }
   });
 

@@ -3,6 +3,9 @@ import {
   knowledgeItems,
   tags,
   knowledgeItemTags,
+  userAiSettings,
+  conversations,
+  chatMessages,
   type User,
   type UpsertUser,
   type KnowledgeItem,
@@ -12,6 +15,13 @@ import {
   type KnowledgeItemTag,
   type InsertKnowledgeItemTag,
   type KnowledgeItemWithTags,
+  type UserAiSettings,
+  type InsertUserAiSettings,
+  type Conversation,
+  type InsertConversation,
+  type ChatMessage,
+  type InsertChatMessage,
+  type ConversationWithMessages,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, ilike, inArray, isNotNull } from "drizzle-orm";
@@ -40,6 +50,20 @@ export interface IStorage {
   // Knowledge item tag operations
   addTagsToKnowledgeItem(knowledgeItemId: string, tagIds: string[]): Promise<void>;
   removeTagsFromKnowledgeItem(knowledgeItemId: string, tagIds: string[]): Promise<void>;
+  
+  // User AI settings operations
+  getUserAiSettings(userId: string): Promise<UserAiSettings | undefined>;
+  upsertUserAiSettings(settings: InsertUserAiSettings): Promise<UserAiSettings>;
+  
+  // Chat conversation operations
+  createConversation(conversation: InsertConversation): Promise<Conversation>;
+  getConversation(id: string): Promise<ConversationWithMessages | undefined>;
+  getConversationsByUser(userId: string): Promise<Conversation[]>;
+  deleteConversation(id: string): Promise<boolean>;
+  
+  // Chat message operations
+  addMessageToConversation(message: InsertChatMessage): Promise<ChatMessage>;
+  getMessagesInConversation(conversationId: string): Promise<ChatMessage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -538,6 +562,103 @@ export class DatabaseStorage implements IStorage {
           inArray(knowledgeItemTags.tagId, tagIds)
         )
       );
+  }
+
+  // User AI settings operations
+  async getUserAiSettings(userId: string): Promise<UserAiSettings | undefined> {
+    const [settings] = await db
+      .select()
+      .from(userAiSettings)
+      .where(eq(userAiSettings.userId, userId))
+      .limit(1);
+    return settings;
+  }
+
+  async upsertUserAiSettings(settings: InsertUserAiSettings): Promise<UserAiSettings> {
+    const [upserted] = await db
+      .insert(userAiSettings)
+      .values(settings)
+      .onConflictDoUpdate({
+        target: userAiSettings.userId,
+        set: {
+          preferredProvider: settings.preferredProvider,
+          preferredModel: settings.preferredModel,
+          customApiKeys: settings.customApiKeys,
+          chatSettings: settings.chatSettings,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  // Chat conversation operations
+  async createConversation(conversation: InsertConversation): Promise<Conversation> {
+    const [created] = await db
+      .insert(conversations)
+      .values(conversation)
+      .returning();
+    return created;
+  }
+
+  async getConversation(id: string): Promise<ConversationWithMessages | undefined> {
+    const conversation = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, id))
+      .limit(1);
+
+    if (!conversation[0]) return undefined;
+
+    const messages = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, id))
+      .orderBy(chatMessages.createdAt);
+
+    return {
+      ...conversation[0],
+      messages,
+    };
+  }
+
+  async getConversationsByUser(userId: string): Promise<Conversation[]> {
+    return await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.userId, userId))
+      .orderBy(desc(conversations.updatedAt));
+  }
+
+  async deleteConversation(id: string): Promise<boolean> {
+    const deleted = await db
+      .delete(conversations)
+      .where(eq(conversations.id, id));
+    return (deleted.rowCount ?? 0) > 0;
+  }
+
+  // Chat message operations
+  async addMessageToConversation(message: InsertChatMessage): Promise<ChatMessage> {
+    const [created] = await db
+      .insert(chatMessages)
+      .values(message)
+      .returning();
+    
+    // Update conversation's updatedAt timestamp
+    await db
+      .update(conversations)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversations.id, message.conversationId));
+    
+    return created;
+  }
+
+  async getMessagesInConversation(conversationId: string): Promise<ChatMessage[]> {
+    return await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(chatMessages.createdAt);
   }
 }
 

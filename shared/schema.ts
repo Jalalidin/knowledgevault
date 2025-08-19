@@ -75,10 +75,65 @@ export const knowledgeItemTags = pgTable("knowledge_item_tags", {
   pk: primaryKey({ columns: [table.knowledgeItemId, table.tagId] }),
 }));
 
+// User AI settings table for RAG chat configuration
+export const userAiSettings = pgTable("user_ai_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  preferredProvider: varchar("preferred_provider", { length: 50 }).notNull().default("gemini"), // 'gemini', 'openai', 'anthropic'
+  preferredModel: varchar("preferred_model", { length: 100 }).notNull().default("gemini-2.5-flash"),
+  customApiKeys: jsonb("custom_api_keys"), // Encrypted API keys for different providers
+  chatSettings: jsonb("chat_settings").default('{}'), // Temperature, max tokens, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Chat conversations table
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Chat messages table
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 20 }).notNull(), // 'user', 'assistant'
+  content: text("content").notNull(),
+  metadata: jsonb("metadata"), // Retrieved knowledge items, model used, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   knowledgeItems: many(knowledgeItems),
   tags: many(tags),
+  aiSettings: many(userAiSettings),
+  conversations: many(conversations),
+}));
+
+export const userAiSettingsRelations = relations(userAiSettings, ({ one }) => ({
+  user: one(users, {
+    fields: [userAiSettings.userId],
+    references: [users.id],
+  }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [chatMessages.conversationId],
+    references: [conversations.id],
+  }),
 }));
 
 export const knowledgeItemsRelations = relations(knowledgeItems, ({ one, many }) => ({
@@ -122,6 +177,23 @@ export const insertTagSchema = createInsertSchema(tags).omit({
 
 export const insertKnowledgeItemTagSchema = createInsertSchema(knowledgeItemTags);
 
+export const insertUserAiSettingsSchema = createInsertSchema(userAiSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -131,10 +203,20 @@ export type Tag = typeof tags.$inferSelect;
 export type InsertTag = z.infer<typeof insertTagSchema>;
 export type KnowledgeItemTag = typeof knowledgeItemTags.$inferSelect;
 export type InsertKnowledgeItemTag = z.infer<typeof insertKnowledgeItemTagSchema>;
+export type UserAiSettings = typeof userAiSettings.$inferSelect;
+export type InsertUserAiSettings = z.infer<typeof insertUserAiSettingsSchema>;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 
 // Extended types with relations
 export type KnowledgeItemWithTags = KnowledgeItem & {
   knowledgeItemTags: (KnowledgeItemTag & {
     tag: Tag;
   })[];
+};
+
+export type ConversationWithMessages = Conversation & {
+  messages: ChatMessage[];
 };
