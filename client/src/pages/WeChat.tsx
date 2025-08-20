@@ -45,7 +45,7 @@ export default function WeChat() {
 
     try {
       setIsLinking(true);
-      const response = await apiRequest("/api/wechat/link", "POST", {
+      const response = await apiRequest("POST", "/api/wechat/link", {
         wechatId: wechatId.trim(),
       });
       
