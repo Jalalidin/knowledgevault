@@ -78,53 +78,41 @@ export class WechatService {
     return 'success';
   }
 
-  // Generate QR code for account linking
-  async generateLinkingQRCode(userId: string): Promise<string> {
-    const linkToken = crypto.randomBytes(32).toString('hex');
-    
-    // Store the link token in cache temporarily (10 minutes)
-    this.cache.set(`link_${linkToken}`, userId, 600);
-    
-    // Generate QR code with linking URL
-    const linkingUrl = `${process.env.BASE_URL || 'https://your-domain.com'}/wechat/link?token=${linkToken}`;
-    const qrCodeDataUrl = await QRCode.toDataURL(linkingUrl);
-    
-    return qrCodeDataUrl;
-  }
-
-  // Link WeChat user to KnowledgeVault user
-  async linkWechatUser(linkToken: string, wechatOpenId: string, nickname?: string, avatarUrl?: string): Promise<WechatIntegration | null> {
-    const userId = this.cache.get<string>(`link_${linkToken}`);
-    if (!userId) {
-      return null;
-    }
-
-    // Remove the token from cache
-    this.cache.del(`link_${linkToken}`);
-
+  // Link WeChat user directly using their WeChat ID
+  async linkWechatUserByWechatId(userId: string, wechatId: string): Promise<WechatIntegration | null> {
     // Check if WeChat user is already linked
-    const existingIntegration = await storage.getWechatIntegrationByOpenId(wechatOpenId);
+    const existingIntegration = await storage.getWechatIntegrationByOpenId(wechatId);
     if (existingIntegration) {
       // Update existing integration
       return await storage.updateWechatIntegration(existingIntegration.id, {
         userId,
-        nickname,
-        avatarUrl,
         isActive: true,
-      });
+      }) || null;
     }
 
     // Create new integration
     const integrationData: InsertWechatIntegration = {
       userId,
-      wechatOpenId,
-      nickname,
-      avatarUrl,
-      linkToken,
+      wechatOpenId: wechatId,
+      nickname: null,
+      avatarUrl: null,
+      linkToken: null,
       isActive: true,
     };
 
     return await storage.createWechatIntegration(integrationData);
+  }
+
+  // Get or create user based on WeChat ID (simplified approach)
+  async getOrCreateUserForWechatId(wechatId: string): Promise<string | null> {
+    // In a simplified approach, we could:
+    // 1. Use a default user account
+    // 2. Allow users to register their WeChat ID in settings
+    // 3. Use the WeChat ID as a lookup key
+    
+    // For now, let's look up existing integration
+    const integration = await storage.getWechatIntegrationByOpenId(wechatId);
+    return integration?.userId || null;
   }
 
   // Process incoming WeChat message and save to knowledge base
@@ -137,7 +125,7 @@ export class WechatService {
       return this.generateXmlResponse(
         wechatOpenId,
         message.ToUserName,
-        "请先扫描二维码关联您的KnowledgeVault账户。Please scan QR code to link your KnowledgeVault account."
+        "您还没有关联KnowledgeVault账户。请在网站设置中配置您的微信ID。\nYour WeChat ID is not linked to KnowledgeVault. Please configure your WeChat ID in the website settings."
       );
     }
 
@@ -344,7 +332,7 @@ export class WechatService {
         return this.generateXmlResponse(
           wechatOpenId,
           event.ToUserName,
-          "欢迎关注KnowledgeVault！🎉\n请访问网站生成二维码来关联您的账户。\n\nWelcome to KnowledgeVault! 🎉\nPlease visit our website to generate a QR code to link your account."
+          "欢迎关注KnowledgeVault！🎉\n请在网站设置中配置您的微信ID来开始使用。\n\nWelcome to KnowledgeVault! 🎉\nPlease configure your WeChat ID in the website settings to start using."
         );
       
       case 'unsubscribe':
@@ -356,21 +344,11 @@ export class WechatService {
         return 'success';
       
       case 'SCAN':
-        // Handle QR code scan for account linking
-        if (event.EventKey) {
-          const result = await this.linkWechatUser(event.EventKey, wechatOpenId);
-          if (result) {
-            return this.generateXmlResponse(
-              wechatOpenId,
-              event.ToUserName,
-              "✅ 账户关联成功！现在您可以发送内容到知识库了。\n✅ Account linked successfully! You can now send content to your knowledge base."
-            );
-          }
-        }
+        // For simplified linking, just provide instructions
         return this.generateXmlResponse(
           wechatOpenId,
           event.ToUserName,
-          "❌ 账户关联失败，请重新扫描二维码。\n❌ Account linking failed, please scan the QR code again."
+          "请在KnowledgeVault网站设置中配置您的微信ID：${wechatOpenId}\nPlease configure your WeChat ID in KnowledgeVault website settings: ${wechatOpenId}"
         );
       
       default:

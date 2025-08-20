@@ -67,42 +67,39 @@ router.post("/webhook", async (req, res) => {
   }
 });
 
-// Generate QR code for account linking
-router.get("/link/qr", isAuthenticated, async (req: any, res) => {
+// Link WeChat account using WeChat ID
+router.post("/link", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.claims.sub;
-    const qrCodeDataUrl = await wechatService.generateLinkingQRCode(userId);
+    const { wechatId } = req.body;
     
-    res.json({ qrCode: qrCodeDataUrl });
+    if (!wechatId) {
+      return res.status(400).json({ error: "WeChat ID is required" });
+    }
+    
+    const integration = await wechatService.linkWechatUserByWechatId(userId, wechatId);
+    
+    if (integration) {
+      res.json({ success: true, integration });
+    } else {
+      res.status(500).json({ error: "Failed to link WeChat account" });
+    }
   } catch (error) {
-    console.error("Error generating QR code:", error);
-    res.status(500).json({ error: "Failed to generate QR code" });
+    console.error("Error linking WeChat account:", error);
+    res.status(500).json({ error: "Failed to link WeChat account" });
   }
 });
 
-// Handle account linking from QR code scan
-router.get("/link", async (req, res) => {
-  const { token } = req.query;
-  
-  if (!token) {
-    return res.status(400).send("Missing token parameter");
-  }
-
-  // This would be called when user scans the QR code
-  // In a real implementation, this might redirect to a confirmation page
-  res.send(`
-    <html>
-      <body>
-        <h1>WeChat Account Linking</h1>
-        <p>Please complete the linking process in WeChat by following the prompts.</p>
-        <p>Token: ${token}</p>
-        <script>
-          // In a real implementation, this could communicate with WeChat
-          // or show instructions to the user
-        </script>
-      </body>
-    </html>
-  `);
+// Get current user's WeChat ID for linking instructions
+router.get("/info", async (req, res) => {
+  res.json({
+    botAccount: process.env.WECHAT_BOT_ACCOUNT || "KnowledgeVault_Bot",
+    instructions: [
+      "Send messages to the KnowledgeVault WeChat account",
+      "Configure your WeChat ID in the settings",
+      "All your messages will be automatically saved to your knowledge base"
+    ]
+  });
 });
 
 // Get user's WeChat integrations

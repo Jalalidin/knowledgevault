@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { QrCode, MessageCircle, Trash2, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { MessageCircle, Trash2, ExternalLink, CheckCircle, XCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -20,8 +22,8 @@ interface WechatIntegration {
 }
 
 export default function WeChat() {
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [wechatId, setWechatId] = useState<string>("");
+  const [isLinking, setIsLinking] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -30,24 +32,37 @@ export default function WeChat() {
     queryKey: ["/api/wechat/integrations"],
   });
 
-  // Generate QR code for linking
-  const generateQRCode = async () => {
-    try {
-      setIsGeneratingQR(true);
-      const response = await fetch("/api/wechat/link/qr", {
-        method: "GET",
-        credentials: "include",
+  // Link WeChat account using WeChat ID
+  const linkWechatAccount = async () => {
+    if (!wechatId.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your WeChat ID",
+        variant: "destructive",
       });
-      const data = await response.json();
-      setQrCode(data.qrCode);
+      return;
+    }
+
+    try {
+      setIsLinking(true);
+      const response = await apiRequest("/api/wechat/link", "POST", {
+        wechatId: wechatId.trim(),
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/wechat/integrations"] });
+      toast({
+        title: "Success",
+        description: "WeChat account linked successfully!",
+      });
+      setWechatId("");
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to generate QR code",
+        description: "Failed to link WeChat account",
         variant: "destructive",
       });
     } finally {
-      setIsGeneratingQR(false);
+      setIsLinking(false);
     }
   };
 
@@ -116,60 +131,57 @@ export default function WeChat() {
                 <div className="bg-blue-100 dark:bg-blue-900 rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 dark:text-blue-300 font-bold">1</span>
                 </div>
-                <h3 className="font-medium mb-1">Generate QR Code</h3>
+                <h3 className="font-medium mb-1">Add WeChat Account</h3>
                 <p className="text-sm text-muted-foreground">
-                  Click the button below to generate a QR code for linking
+                  Follow our WeChat account and get your WeChat ID
                 </p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <div className="bg-blue-100 dark:bg-blue-900 rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 dark:text-blue-300 font-bold">2</span>
                 </div>
-                <h3 className="font-medium mb-1">Scan with WeChat</h3>
+                <h3 className="font-medium mb-1">Configure WeChat ID</h3>
                 <p className="text-sm text-muted-foreground">
-                  Use WeChat to scan the QR code and follow the prompts
+                  Enter your WeChat ID in the form below to link your account
                 </p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <div className="bg-blue-100 dark:bg-blue-900 rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 dark:text-blue-300 font-bold">3</span>
                 </div>
-                <h3 className="font-medium mb-1">Start Sharing</h3>
+                <h3 className="font-medium mb-1">Start Messaging</h3>
                 <p className="text-sm text-muted-foreground">
-                  Send messages, images, or links to save them to your knowledge base
+                  Send messages to the bot to automatically save them to your knowledge base
                 </p>
               </div>
             </div>
 
             <Separator />
 
-            <div className="text-center">
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="wechat-id">Your WeChat ID</Label>
+                <Input
+                  id="wechat-id"
+                  placeholder="Enter your WeChat ID"
+                  value={wechatId}
+                  onChange={(e) => setWechatId(e.target.value)}
+                  data-testid="input-wechat-id"
+                />
+                <p className="text-xs text-muted-foreground">
+                  You can find your WeChat ID in WeChat Settings → Account Info → WeChat ID
+                </p>
+              </div>
+              
               <Button
-                onClick={generateQRCode}
-                disabled={isGeneratingQR}
-                className="mb-4"
-                data-testid="button-generate-qr"
+                onClick={linkWechatAccount}
+                disabled={isLinking || !wechatId.trim()}
+                className="w-full"
+                data-testid="button-link-account"
               >
-                <QrCode className="h-4 w-4 mr-2" />
-                {isGeneratingQR ? "Generating..." : "Generate QR Code"}
+                <Plus className="h-4 w-4 mr-2" />
+                {isLinking ? "Linking..." : "Link WeChat Account"}
               </Button>
-
-              {qrCode && (
-                <div className="flex flex-col items-center space-y-2" data-testid="qr-code-display">
-                  <img
-                    src={qrCode}
-                    alt="WeChat Linking QR Code"
-                    className="w-48 h-48 border-2 border-gray-200 rounded-lg"
-                    data-testid="img-qr-code"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Scan this QR code with WeChat to link your account
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    QR code expires in 10 minutes
-                  </p>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -266,7 +278,7 @@ export default function WeChat() {
               <div className="space-y-2">
                 <h4 className="font-medium">✉️ Text Messages</h4>
                 <p className="text-sm text-muted-foreground">
-                  Send any text message to automatically save it to your knowledge base with AI-generated summaries.
+                  Send text messages to the WeChat bot to automatically save them with AI-generated summaries.
                 </p>
               </div>
               <div className="space-y-2">
