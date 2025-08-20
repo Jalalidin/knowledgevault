@@ -9,6 +9,7 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import ImprovedChat from "@/pages/improved-chat";
 import Settings from "@/pages/settings";
+import WeChat from "@/pages/WeChat";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -21,6 +22,7 @@ function Router() {
         <>
           <Route path="/" component={Home} />
           <Route path="/chat" component={ImprovedChat} />
+          <Route path="/wechat" component={WeChat} />
           <Route path="/settings" component={Settings} />
         </>
       )}

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { MessageSquare, Settings } from "lucide-react";
+import { MessageSquare, Settings, MessageCircle } from "lucide-react";
 
 interface NavigationProps {
   onSearch: (query: string) => void;
@@ -75,6 +75,17 @@ export default function Navigation({ onSearch }: NavigationProps) {
                 >
                   <MessageSquare className="h-4 w-4" />
                   Chat
+                </Button>
+              </Link>
+              <Link href="/wechat">
+                <Button
+                  variant={isActive("/wechat") ? "default" : "ghost"}
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="nav-wechat"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  WeChat
                 </Button>
               </Link>
               <Link href="/settings">

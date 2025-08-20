@@ -16,6 +16,7 @@ import {
   processLinkContent,
 } from "./gemini";
 import { insertKnowledgeItemSchema, insertConversationSchema, insertChatMessageSchema } from "@shared/schema";
+import wechatRoutes from "./wechat-routes";
 import { aiService } from "./ai-service";
 import { z } from "zod";
 import multer from "multer";
@@ -863,6 +864,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch AI models" });
     }
   });
+
+  // WeChat integration routes
+  app.use("/api/wechat", wechatRoutes);
 
   const httpServer = createServer(app);
   return httpServer;

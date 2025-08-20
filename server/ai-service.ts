@@ -363,7 +363,40 @@ ${item.content ? `Content: ${item.content.slice(0, 500)}${item.content.length > 
   getSupportedProviders(): string[] {
     return ["gemini", "openai"];
   }
+  // Generate summary for text content
+  async generateSummary(content: string): Promise<string> {
+    const provider = this.getProvider("gemini");
+    const prompt = `Please provide a brief, concise summary of the following text in 1-2 sentences:\n\n${content}`;
+    return await provider.generateResponse(prompt, "", { model: "gemini-2.5-flash" });
+  }
+
+  // Generate title for content
+  async generateTitle(content: string): Promise<string> {
+    const provider = this.getProvider("gemini");
+    const prompt = `Generate a short, descriptive title (max 50 characters) for the following content:\n\n${content}`;
+    const title = await provider.generateResponse(prompt, "", { model: "gemini-2.5-flash" });
+    return title.length > 50 ? title.substring(0, 50).trim() + "..." : title;
+  }
+
+  // Analyze image from URL
+  async analyzeImageFromUrl(imageUrl: string): Promise<{ title: string; description: string }> {
+    // For now, return placeholder analysis since we'd need to download and process the image
+    // In a full implementation, you'd download the image and use Gemini's vision capabilities
+    return {
+      title: "Image from WeChat",
+      description: "Image shared via WeChat (detailed analysis not available)"
+    };
+  }
+
+  // Process web link content
+  async processWebLink(url: string): Promise<{ content: string; summary: string }> {
+    // For now, return placeholder processing
+    // In a full implementation, you'd fetch the URL content and process it
+    return {
+      content: `Web link: ${url}`,
+      summary: "Link shared via WeChat (content extraction not available)"
+    };
+  }
 }
 
-// Export singleton instance
 export const aiService = new AiService();

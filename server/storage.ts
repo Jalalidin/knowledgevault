@@ -6,6 +6,8 @@ import {
   userAiSettings,
   conversations,
   chatMessages,
+  wechatIntegrations,
+  wechatWebhooks,
   type User,
   type UpsertUser,
   type KnowledgeItem,
@@ -22,6 +24,10 @@ import {
   type ChatMessage,
   type InsertChatMessage,
   type ConversationWithMessages,
+  type WechatIntegration,
+  type InsertWechatIntegration,
+  type WechatWebhook,
+  type InsertWechatWebhook,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, ilike, inArray, isNotNull } from "drizzle-orm";
@@ -64,6 +70,18 @@ export interface IStorage {
   // Chat message operations
   addMessageToConversation(message: InsertChatMessage): Promise<ChatMessage>;
   getMessagesInConversation(conversationId: string): Promise<ChatMessage[]>;
+  
+  // WeChat integration operations
+  createWechatIntegration(integration: InsertWechatIntegration): Promise<WechatIntegration>;
+  getWechatIntegrationByOpenId(openId: string): Promise<WechatIntegration | undefined>;
+  getWechatIntegrationsByUser(userId: string): Promise<WechatIntegration[]>;
+  updateWechatIntegration(id: string, updates: Partial<InsertWechatIntegration>): Promise<WechatIntegration | undefined>;
+  deleteWechatIntegration(id: string): Promise<boolean>;
+  
+  // WeChat webhook operations
+  createWechatWebhook(webhook: InsertWechatWebhook): Promise<WechatWebhook>;
+  getWechatWebhooks(): Promise<WechatWebhook[]>;
+  updateWechatWebhook(id: string, updates: Partial<InsertWechatWebhook>): Promise<WechatWebhook | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -659,6 +677,73 @@ export class DatabaseStorage implements IStorage {
       .from(chatMessages)
       .where(eq(chatMessages.conversationId, conversationId))
       .orderBy(chatMessages.createdAt);
+  }
+
+  // WeChat integration operations
+  async createWechatIntegration(integration: InsertWechatIntegration): Promise<WechatIntegration> {
+    const [created] = await db
+      .insert(wechatIntegrations)
+      .values(integration)
+      .returning();
+    return created;
+  }
+
+  async getWechatIntegrationByOpenId(openId: string): Promise<WechatIntegration | undefined> {
+    const [integration] = await db
+      .select()
+      .from(wechatIntegrations)
+      .where(eq(wechatIntegrations.wechatOpenId, openId))
+      .limit(1);
+    return integration;
+  }
+
+  async getWechatIntegrationsByUser(userId: string): Promise<WechatIntegration[]> {
+    return await db
+      .select()
+      .from(wechatIntegrations)
+      .where(eq(wechatIntegrations.userId, userId))
+      .orderBy(desc(wechatIntegrations.createdAt));
+  }
+
+  async updateWechatIntegration(id: string, updates: Partial<InsertWechatIntegration>): Promise<WechatIntegration | undefined> {
+    const [updated] = await db
+      .update(wechatIntegrations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wechatIntegrations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteWechatIntegration(id: string): Promise<boolean> {
+    const deleted = await db
+      .delete(wechatIntegrations)
+      .where(eq(wechatIntegrations.id, id));
+    return (deleted.rowCount ?? 0) > 0;
+  }
+
+  // WeChat webhook operations
+  async createWechatWebhook(webhook: InsertWechatWebhook): Promise<WechatWebhook> {
+    const [created] = await db
+      .insert(wechatWebhooks)
+      .values(webhook)
+      .returning();
+    return created;
+  }
+
+  async getWechatWebhooks(): Promise<WechatWebhook[]> {
+    return await db
+      .select()
+      .from(wechatWebhooks)
+      .orderBy(desc(wechatWebhooks.createdAt));
+  }
+
+  async updateWechatWebhook(id: string, updates: Partial<InsertWechatWebhook>): Promise<WechatWebhook | undefined> {
+    const [updated] = await db
+      .update(wechatWebhooks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(wechatWebhooks.id, id))
+      .returning();
+    return updated;
   }
 }
 

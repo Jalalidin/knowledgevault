@@ -106,12 +106,42 @@ export const chatMessages = pgTable("chat_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// WeChat integration settings table
+export const wechatIntegrations = pgTable("wechat_integrations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  wechatOpenId: varchar("wechat_open_id").unique(), // WeChat user's OpenID
+  wechatUnionId: varchar("wechat_union_id"), // WeChat UnionID (across apps)
+  nickname: varchar("nickname"),
+  avatarUrl: text("avatar_url"),
+  linkToken: varchar("link_token").unique(), // Temporary token for linking accounts
+  isActive: boolean("is_active").default(true),
+  lastMessageAt: timestamp("last_message_at"),
+  settings: jsonb("settings").default('{}'), // Auto-save preferences, content filters, etc.
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// WeChat webhook configuration table
+export const wechatWebhooks = pgTable("wechat_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appId: varchar("app_id").notNull(),
+  appSecret: varchar("app_secret").notNull(), // Encrypted
+  token: varchar("token").notNull(),
+  encodingAESKey: varchar("encoding_aes_key"), // For message encryption
+  webhookUrl: text("webhook_url"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   knowledgeItems: many(knowledgeItems),
   tags: many(tags),
   aiSettings: many(userAiSettings),
   conversations: many(conversations),
+  wechatIntegrations: many(wechatIntegrations),
 }));
 
 export const userAiSettingsRelations = relations(userAiSettings, ({ one }) => ({
@@ -163,6 +193,13 @@ export const knowledgeItemTagsRelations = relations(knowledgeItemTags, ({ one })
   }),
 }));
 
+export const wechatIntegrationsRelations = relations(wechatIntegrations, ({ one }) => ({
+  user: one(users, {
+    fields: [wechatIntegrations.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas
 export const insertKnowledgeItemSchema = createInsertSchema(knowledgeItems).omit({
   id: true,
@@ -194,6 +231,18 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   createdAt: true,
 });
 
+export const insertWechatIntegrationSchema = createInsertSchema(wechatIntegrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWechatWebhookSchema = createInsertSchema(wechatWebhooks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -220,3 +269,8 @@ export type KnowledgeItemWithTags = KnowledgeItem & {
 export type ConversationWithMessages = Conversation & {
   messages: ChatMessage[];
 };
+
+export type WechatIntegration = typeof wechatIntegrations.$inferSelect;
+export type InsertWechatIntegration = z.infer<typeof insertWechatIntegrationSchema>;
+export type WechatWebhook = typeof wechatWebhooks.$inferSelect;
+export type InsertWechatWebhook = z.infer<typeof insertWechatWebhookSchema>;
