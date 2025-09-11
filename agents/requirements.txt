@@ -1,0 +1,24 @@
+# KnowledgeVault Multi-Agent System Dependencies
+# Built with Agno framework for high-performance agent coordination
+
+# Core Agno framework
+agno==2.0.3
+
+# FastAPI for API endpoints
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# Database connectivity
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+
+# Additional tools and utilities
+pydantic==2.11.7
+pydantic-settings==2.10.1
+python-dotenv==1.1.1
+httpx==0.28.1
+
+# Development and testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
