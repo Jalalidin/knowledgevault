@@ -97,33 +97,27 @@ const LandingPage = () => {
   const features = [
     {
       icon: Upload,
-      shape: Circle,
-      title: "INTELLIGENT\nUPLOAD",
-      subtitle: "SYSTEM",
-      description: "Transform chaos into clarity. Our AI doesn't just store—it understands, categorizes, and connects your content in ways you never imagined.",
-      color: "#FF6B6B",
-      accent: "#FF8E8E",
-      position: { x: -20, y: 20 }
+      title: "Smart Upload",
+      description: "Drag & drop any file type - PDFs, images, videos, links. Our AI automatically extracts content, generates summaries, and organizes everything intelligently.",
+      color: "from-blue-500 to-blue-600",
+      bgColor: "bg-blue-50",
+      iconColor: "text-blue-600"
     },
     {
       icon: Search,
-      shape: Triangle,
-      title: "NEURAL\nSEARCH",
-      subtitle: "ENGINE",
-      description: "Beyond keywords. Beyond files. Your thoughts become queries, your questions become discoveries in the infinite landscape of your knowledge.",
-      color: "#4ECDC4", 
-      accent: "#6EDCD4",
-      position: { x: 20, y: -20 }
+      title: "Natural Search", 
+      description: "Find anything instantly with natural language. Ask questions like 'my contract from last month' or 'photos from vacation' and get exactly what you need.",
+      color: "from-green-500 to-green-600",
+      bgColor: "bg-green-50",
+      iconColor: "text-green-600"
     },
     {
       icon: Shield,
-      shape: Hexagon,
-      title: "FORTRESS\nPRIVACY",
-      subtitle: "PROTOCOL", 
-      description: "Your mind's vault, encrypted at the atomic level. What's yours stays yours, protected by mathematics itself.",
-      color: "#45B7D1",
-      accent: "#67C7E1", 
-      position: { x: 0, y: 30 }
+      title: "Secure & Private",
+      description: "Your documents are encrypted end-to-end. Only you can access your knowledge vault. We never read, analyze, or share your personal information.",
+      color: "from-purple-500 to-purple-600", 
+      bgColor: "bg-purple-50",
+      iconColor: "text-purple-600"
     }
   ];
 
@@ -159,20 +153,20 @@ const LandingPage = () => {
   return (
     <div 
       ref={containerRef}
-      className="min-h-screen bg-black text-white overflow-hidden relative font-mono" 
+      className="min-h-screen bg-white text-gray-900 overflow-hidden relative" 
       data-testid="landing-page"
       style={{
         background: `
-          radial-gradient(circle at 20% 50%, rgba(255, 107, 107, 0.1) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(78, 205, 196, 0.1) 0%, transparent 50%),
-          radial-gradient(circle at 40% 80%, rgba(69, 183, 209, 0.1) 0%, transparent 50%),
-          linear-gradient(135deg, #000000 0%, #0a0a0a 100%)
+          radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+          radial-gradient(circle at 40% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 50%),
+          linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)
         `
       }}
     >
       {/* Dynamic Cursor Follower */}
       <motion.div
-        className="fixed top-0 left-0 w-8 h-8 pointer-events-none z-50 mix-blend-difference"
+        className="fixed top-0 left-0 w-6 h-6 pointer-events-none z-50"
         style={{
           x: springX,
           y: springY,
@@ -180,15 +174,15 @@ const LandingPage = () => {
           translateY: "-50%"
         }}
       >
-        <div className="w-full h-full bg-white rounded-full" />
+        <div className="w-full h-full bg-blue-500/20 rounded-full backdrop-blur-sm" />
       </motion.div>
 
-      {/* Artistic Background Elements */}
+      {/* Subtle Background Elements */}
       <motion.div
         style={{ y: y1, rotate: rotate1 }}
-        className="absolute top-20 left-20 w-64 h-64 opacity-20"
+        className="absolute top-20 left-20 w-32 h-32 opacity-5"
         animate={{
-          scale: [1, 1.3, 1],
+          scale: [1, 1.1, 1],
           rotateZ: [0, 360]
         }}
         transition={{
@@ -197,14 +191,14 @@ const LandingPage = () => {
           ease: "linear"
         }}
       >
-        <div className="w-full h-full border-2 border-red-500 rotate-45" />
+        <FileText className="w-full h-full text-blue-500" />
       </motion.div>
       
       <motion.div
         style={{ y: y2, rotate: rotate2 }}
-        className="absolute top-40 right-10 w-32 h-32 opacity-30"
+        className="absolute top-40 right-10 w-24 h-24 opacity-5"
         animate={{
-          scale: [1.2, 0.8, 1.2],
+          scale: [1.1, 0.9, 1.1],
           rotateZ: [360, 0]
         }}
         transition={{
@@ -213,15 +207,15 @@ const LandingPage = () => {
           ease: "easeInOut"
         }}
       >
-        <Triangle className="w-full h-full text-cyan-400" />
+        <Image className="w-full h-full text-purple-500" />
       </motion.div>
 
       <motion.div
         style={{ y: y3 }}
-        className="absolute bottom-20 left-1/2 w-48 h-48 opacity-20"
+        className="absolute bottom-20 left-1/2 w-28 h-28 opacity-5"
         animate={{
           rotateZ: [0, 180, 360],
-          scale: [0.8, 1.1, 0.8]
+          scale: [0.9, 1.1, 0.9]
         }}
         transition={{
           duration: 20,
@@ -229,831 +223,439 @@ const LandingPage = () => {
           ease: "linear"
         }}
       >
-        <Hexagon className="w-full h-full text-blue-400" />
+        <Upload className="w-full h-full text-green-500" />
       </motion.div>
 
-      {/* Floating Geometric Shapes */}
-      {[...Array(12)].map((_, i) => (
+      {/* Floating Document Icons */}
+      {[FileText, Image, Video, Volume2, ExternalLink].map((Icon, i) => (
         <motion.div
           key={i}
-          className="absolute opacity-10"
+          className="absolute opacity-5"
           style={{
-            top: `${Math.random() * 100}%`,
-            left: `${Math.random() * 100}%`,
-            width: `${20 + Math.random() * 40}px`,
-            height: `${20 + Math.random() * 40}px`,
+            top: `${20 + Math.random() * 60}%`,
+            left: `${10 + Math.random() * 80}%`,
+            width: `${16 + Math.random() * 24}px`,
+            height: `${16 + Math.random() * 24}px`,
           }}
           animate={{
-            y: [0, -100, 0],
-            x: [0, Math.random() * 50 - 25, 0],
-            rotate: [0, 360],
-            opacity: [0.1, 0.3, 0.1]
+            y: [0, -50, 0],
+            x: [0, Math.random() * 25 - 12.5, 0],
+            rotate: [0, 180, 360],
+            opacity: [0.05, 0.15, 0.05]
           }}
           transition={{
-            duration: 10 + Math.random() * 10,
+            duration: 8 + Math.random() * 8,
             repeat: Infinity,
             delay: Math.random() * 5,
             ease: "easeInOut"
           }}
         >
-          {i % 3 === 0 && <Circle className="w-full h-full text-red-400" />}
-          {i % 3 === 1 && <Square className="w-full h-full text-cyan-400" />}
-          {i % 3 === 2 && <Triangle className="w-full h-full text-blue-400" />}
+          <Icon className="w-full h-full text-blue-500" />
         </motion.div>
       ))}
 
       <div className="relative z-10">
-        {/* Experimental Navigation */}
-        <nav className="fixed top-0 left-0 right-0 z-50 p-6 lg:px-12 mix-blend-difference">
+        {/* Clean Navigation */}
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 p-6 lg:px-12">
           <motion.div 
-            className="flex items-center justify-between"
-            initial={{ opacity: 0, y: -30 }}
+            className="flex items-center justify-between max-w-7xl mx-auto"
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: "easeOut" }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
           >
             <motion.div 
-              className="flex items-center gap-4"
+              className="flex items-center gap-3"
               data-testid="logo"
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.02 }}
             >
               <motion.div 
-                className="w-12 h-12 border-2 border-white relative"
+                className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center"
                 animate={{ 
                   rotateZ: isPlaying ? [0, 360] : 0,
-                  borderRadius: ["20%", "50%", "20%"]
                 }}
                 transition={{ 
-                  duration: 8, 
+                  duration: 20, 
                   repeat: isPlaying ? Infinity : 0,
                   ease: "linear"
                 }}
               >
-                <Brain className="w-6 h-6 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                <Brain className="w-5 h-5 text-white" />
               </motion.div>
               
               <div className="text-left">
-                <h1 className="text-2xl font-bold tracking-wider text-white">
-                  KNOWLEDGE
+                <h1 className="text-xl font-bold text-gray-900">
+                  KnowledgeVault
                 </h1>
-                <div className="text-sm opacity-60 tracking-[0.2em]">
-                  VAULT™
+                <div className="text-xs text-gray-500">
+                  Document Intelligence
                 </div>
               </div>
             </motion.div>
 
             <motion.div 
               className="flex items-center gap-6"
-              initial={{ opacity: 0, x: 30 }}
+              initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="p-2 border border-white/30 hover:border-white/60 transition-all"
-                aria-label={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-              </button>
-              
               <Button 
                 onClick={handleGetStarted}
-                className="bg-transparent border border-white text-white hover:bg-white hover:text-black transition-all duration-300 px-8 py-2 uppercase tracking-wider text-sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-all duration-300"
                 data-testid="nav-get-started"
               >
-                ENTER →
+                Get Started
               </Button>
             </motion.div>
           </motion.div>
         </nav>
 
-        {/* Hero Section - Experimental Typography */}
+        {/* Hero Section - Clean & Clear */}
         <section 
-          className="min-h-screen flex items-center justify-center px-6 relative"
+          className="min-h-screen flex items-center justify-center px-6 relative pt-20"
           data-section="0"
         >
           <div className="max-w-7xl mx-auto text-center relative">
-            {/* Main Title - Deconstructed */}
+            
+            {/* Main Title */}
             <motion.div
-              className="relative mb-16"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 2, delay: 0.5 }}
+              className="mb-8"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
             >
-              <motion.div 
-                className="text-8xl lg:text-[12rem] font-black leading-none"
-                style={{ 
-                  fontFamily: 'Inter, sans-serif',
-                  letterSpacing: '-0.02em'
-                }}
+              <motion.h1 
+                className="text-5xl lg:text-7xl font-bold leading-tight text-gray-900 mb-4"
                 data-testid="hero-title"
               >
-                <motion.span
-                  className="inline-block"
-                  initial={{ opacity: 0, x: -100 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 1, delay: 0.8 }}
-                  style={{ color: '#FF6B6B' }}
-                >
-                  K
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  initial={{ opacity: 0, y: 100 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 1, delay: 0.9 }}
-                  style={{ color: '#4ECDC4' }}
-                >
-                  N
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  initial={{ opacity: 0, x: 100 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 1, delay: 1.0 }}
-                  style={{ color: '#45B7D1' }}
-                >
-                  O
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  initial={{ opacity: 0, scale: 2 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 1, delay: 1.1 }}
-                  style={{ color: '#96CEB4' }}
-                >
-                  W
-                </motion.span>
-                <motion.span
-                  className="inline-block"
-                  initial={{ opacity: 0, rotate: 180 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  transition={{ duration: 1, delay: 1.2 }}
-                  style={{ color: '#FECA57' }}
-                >
-                  L
-                </motion.span>
-              </motion.div>
+                Your Personal
+                <br />
+                <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                  Knowledge Vault
+                </span>
+              </motion.h1>
               
-              <motion.div
-                className="text-4xl lg:text-6xl font-light tracking-[0.3em] mt-4 opacity-80"
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 0.8, y: 0 }}
-                transition={{ duration: 1, delay: 1.5 }}
+              <motion.p
+                className="text-xl lg:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                data-testid="hero-description"
               >
-                EDGE_VAULT
-              </motion.div>
+                Store, organize, and instantly find any document, image, video, or link with AI-powered search and automatic categorization.
+              </motion.p>
             </motion.div>
 
-            {/* Subtitle - Floating Words */}
-            <motion.div 
-              className="relative h-32 mb-16 overflow-hidden"
-              data-testid="hero-description"
-            >
-              {["INTELLIGENCE", "ORGANIZES", "SEARCHABLE", "ENCRYPTED"].map((word, index) => (
-                <motion.span
-                  key={word}
-                  className={`absolute text-2xl lg:text-3xl font-light tracking-widest`}
-                  style={{
-                    color: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'][index],
-                    left: `${20 + index * 15}%`,
-                    top: `${10 + index * 20}%`
-                  }}
-                  animate={{
-                    y: [0, -20, 0],
-                    opacity: [0.6, 1, 0.6],
-                    rotateZ: [0, 5, 0]
-                  }}
-                  transition={{
-                    duration: 4,
-                    delay: 2 + index * 0.2,
-                    repeat: Infinity,
-                    repeatDelay: 2
-                  }}
-                >
-                  {word}
-                </motion.span>
-              ))}
-            </motion.div>
-
-            {/* CTA Buttons - Asymmetric Layout */}
+            {/* Visual Demo */}
             <motion.div
-              className="flex flex-col lg:flex-row items-center justify-center gap-8 relative"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 2.5 }}
+              className="mb-12 max-w-4xl mx-auto"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
             >
-              <motion.div
-                className="relative"
-                whileHover={{ scale: 1.05, rotateZ: -1 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                <Button 
-                  onClick={handleGetStarted}
-                  className="bg-transparent border-2 border-red-400 text-red-400 hover:bg-red-400 hover:text-black px-12 py-4 text-lg font-light tracking-widest transition-all duration-500"
-                  data-testid="hero-get-started"
-                >
-                  INITIATE
-                </Button>
-                <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-400 rounded-full animate-pulse" />
-              </motion.div>
-              
-              <motion.div
-                className="relative"
-                whileHover={{ scale: 1.05, rotateZ: 1 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                <Button 
-                  onClick={handleTryDemo}
-                  className="bg-transparent border-2 border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black px-12 py-4 text-lg font-light tracking-widest transition-all duration-500"
-                  data-testid="hero-demo"
-                >
-                  EXPLORE
-                </Button>
-                <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-cyan-400 rotate-45" />
-              </motion.div>
+              <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-8">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  {[
+                    { icon: FileText, label: "Documents", count: "1,247", color: "text-blue-500 bg-blue-50" },
+                    { icon: Image, label: "Images", count: "856", color: "text-green-500 bg-green-50" },
+                    { icon: Video, label: "Videos", count: "124", color: "text-purple-500 bg-purple-50" },
+                    { icon: ExternalLink, label: "Links", count: "432", color: "text-orange-500 bg-orange-50" }
+                  ].map((item, index) => (
+                    <motion.div
+                      key={item.label}
+                      className="text-center"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <div className={`w-16 h-16 mx-auto mb-3 rounded-xl ${item.color} flex items-center justify-center`}>
+                        <item.icon className="w-8 h-8" />
+                      </div>
+                      <div className="text-2xl font-bold text-gray-900 mb-1">{item.count}</div>
+                      <div className="text-sm text-gray-600">{item.label}</div>
+                    </motion.div>
+                  ))}
+                </div>
+                
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <Search className="w-4 h-4" />
+                    <span className="italic">"Find my presentation about quarterly results"</span>
+                    <Sparkles className="w-4 h-4 text-blue-500" />
+                  </div>
+                </div>
+              </div>
             </motion.div>
 
-            {/* Floating Stats */}
+            {/* CTA Buttons */}
+            <motion.div
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 1.0 }}
+            >
+              <Button 
+                onClick={handleGetStarted}
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                data-testid="hero-get-started"
+              >
+                Start Organizing
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="lg"
+                className="px-8 py-4 text-lg border-2 border-gray-300 hover:border-gray-400 rounded-xl transition-all duration-300"
+                onClick={handleTryDemo}
+                data-testid="hero-demo"
+              >
+                <MessageSquare className="mr-2 w-5 h-5" />
+                Try Demo
+              </Button>
+            </motion.div>
+
+            {/* Trust Indicators */}
             <motion.div 
-              className="absolute top-20 right-10 text-right opacity-60"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 0.6, x: 0 }}
-              transition={{ duration: 1, delay: 3 }}
+              className="flex justify-center gap-8 lg:gap-16 text-center opacity-60"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 0.6, y: 0 }}
+              transition={{ duration: 0.8, delay: 1.2 }}
               data-testid="hero-stats"
             >
-              <div className="text-sm tracking-[0.2em] mb-2">FORMAT_SUPPORT</div>
-              <div className="text-4xl font-black text-red-400">∞</div>
-            </motion.div>
-
-            <motion.div 
-              className="absolute bottom-20 left-10 text-left opacity-60"
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 0.6, x: 0 }}
-              transition={{ duration: 1, delay: 3.2 }}
-            >
-              <div className="text-sm tracking-[0.2em] mb-2">ENCRYPTION_LEVEL</div>
-              <div className="text-4xl font-black text-cyan-400">100%</div>
+              <div>
+                <div className="text-2xl font-bold text-blue-600">50+</div>
+                <div className="text-sm text-gray-600">File Types</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">∞</div>
+                <div className="text-sm text-gray-600">Storage</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-purple-600">100%</div>
+                <div className="text-sm text-gray-600">Private</div>
+              </div>
             </motion.div>
           </div>
         </section>
 
-        {/* Features Section - Experimental Layout */}
+        {/* Features Section - Clean & Functional */}
         <section 
-          className="min-h-screen px-6 lg:px-12 py-32 relative" 
+          className="py-20 px-6 lg:px-12 bg-gray-50" 
           data-section="1"
           data-testid="features-section"
         >
-          {/* Section Title - Deconstructed */}
-          <motion.div 
-            className="text-center mb-32"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            viewport={{ once: true }}
-          >
-            <motion.h2 
-              className="text-6xl lg:text-8xl font-black tracking-tighter mb-8"
-              style={{ fontFamily: 'Inter, sans-serif' }}
-              initial={{ opacity: 0, rotateX: 90 }}
-              whileInView={{ opacity: 1, rotateX: 0 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              viewport={{ once: true }}
-            >
-              <span className="text-white">SYS</span>
-              <span className="text-red-400">TEM</span>
-              <span className="text-cyan-400">_</span>
-              <span className="text-blue-400">CORE</span>
-            </motion.h2>
-            
-            <motion.div
-              className="text-lg tracking-[0.4em] opacity-60 uppercase"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 0.6, y: 0 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              viewport={{ once: true }}
-            >
-              NEURAL ARCHITECTURE
-            </motion.div>
-          </motion.div>
-
-          {/* Features - Asymmetric Grid */}
           <div className="max-w-7xl mx-auto">
-            {features.map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                className="relative mb-32 lg:mb-48"
-                initial={{ opacity: 0, x: index % 2 === 0 ? -100 : 100 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 1, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                data-testid={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-').replace(/\n/g, '-')}`}
-              >
-                <div 
-                  className={`grid lg:grid-cols-2 gap-16 items-center ${
-                    index % 2 === 0 ? '' : 'lg:grid-flow-col-dense'
-                  }`}
+            {/* Section Title */}
+            <motion.div 
+              className="text-center mb-16"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+            >
+              <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-gray-900">
+                Everything You Need
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                From simple file storage to AI-powered organization, KnowledgeVault adapts to how you work
+              </p>
+            </motion.div>
+
+            {/* Features Grid */}
+            <div className="grid lg:grid-cols-3 gap-8">
+              {features.map((feature, index) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  whileHover={{ y: -5 }}
+                  className="group"
+                  data-testid={`feature-${feature.title.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  {/* Content */}
-                  <motion.div 
-                    className={`relative ${index % 2 === 0 ? '' : 'lg:col-start-2'}`}
-                    style={{
-                      transform: `translate(${feature.position.x}px, ${feature.position.y}px)`
-                    }}
-                  >
+                  <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 h-full border border-gray-100">
                     <motion.div 
-                      className="text-sm tracking-[0.3em] opacity-40 mb-4 uppercase"
-                      style={{ color: feature.color }}
+                      className={`w-16 h-16 ${feature.bgColor} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}
                     >
-                      {feature.subtitle}
+                      <feature.icon className={`w-8 h-8 ${feature.iconColor}`} />
                     </motion.div>
                     
-                    <motion.h3 
-                      className="text-4xl lg:text-6xl font-black leading-none mb-8 whitespace-pre-line"
-                      style={{ color: feature.color }}
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ type: "spring", stiffness: 400 }}
-                    >
+                    <h3 className="text-2xl font-bold mb-4 text-gray-900">
                       {feature.title}
-                    </motion.h3>
+                    </h3>
                     
-                    <motion.p 
-                      className="text-lg lg:text-xl text-gray-300 leading-relaxed mb-8 max-w-lg"
-                      initial={{ opacity: 0.6 }}
-                      whileInView={{ opacity: 1 }}
-                      transition={{ duration: 0.8 }}
-                      viewport={{ once: true }}
-                    >
+                    <p className="text-gray-600 leading-relaxed">
                       {feature.description}
-                    </motion.p>
-
-                    <motion.button
-                      className="border border-white/30 px-8 py-3 text-sm tracking-[0.2em] uppercase hover:border-white/60 transition-all duration-300"
-                      whileHover={{ x: 10 }}
-                      style={{
-                        background: `linear-gradient(90deg, ${feature.color}20 0%, transparent 100%)`
-                      }}
-                    >
-                      ANALYZE_PROTOCOL →
-                    </motion.button>
-                  </motion.div>
-
-                  {/* Visual Element */}
-                  <motion.div 
-                    className={`relative h-96 ${index % 2 === 0 ? '' : 'lg:col-start-1'}`}
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <motion.div
-                      className="absolute inset-0 border-2 opacity-30"
-                      style={{ borderColor: feature.color }}
-                      animate={{
-                        rotateZ: [0, 360],
-                        scale: [1, 1.1, 1]
-                      }}
-                      transition={{
-                        duration: 20,
-                        repeat: Infinity,
-                        ease: "linear"
-                      }}
-                    />
-                    
-                    <motion.div
-                      className="absolute inset-4 flex items-center justify-center"
-                      style={{
-                        background: `radial-gradient(circle, ${feature.color}30 0%, transparent 70%)`
-                      }}
-                    >
-                      <motion.div
-                        className="relative"
-                        animate={{
-                          rotateY: [0, 360]
-                        }}
-                        transition={{
-                          duration: 15,
-                          repeat: Infinity,
-                          ease: "linear"
-                        }}
-                      >
-                        <feature.shape 
-                          className="w-32 h-32"
-                          style={{ color: feature.color }}
-                        />
-                        <feature.icon 
-                          className="w-16 h-16 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white"
-                        />
-                      </motion.div>
-                    </motion.div>
-
-                    {/* Floating Data Points */}
-                    {[...Array(8)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-2 h-2 rounded-full opacity-60"
-                        style={{
-                          backgroundColor: feature.accent,
-                          top: `${20 + Math.random() * 60}%`,
-                          left: `${20 + Math.random() * 60}%`,
-                        }}
-                        animate={{
-                          y: [0, -20, 0],
-                          opacity: [0.6, 1, 0.6],
-                          scale: [1, 1.5, 1]
-                        }}
-                        transition={{
-                          duration: 2 + Math.random() * 2,
-                          repeat: Infinity,
-                          delay: Math.random() * 2,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </motion.div>
-                </div>
-              </motion.div>
-            ))}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Data Stream Section - Creative Visualization */}
+        {/* File Types Section - Clear & Visual */}
         <section 
-          className="min-h-screen px-6 lg:px-12 py-32 relative overflow-hidden" 
+          className="py-20 px-6 lg:px-12" 
           data-section="2"
           data-testid="file-types-section"
-          style={{
-            background: `
-              radial-gradient(circle at 30% 30%, rgba(255, 107, 107, 0.05) 0%, transparent 50%),
-              radial-gradient(circle at 70% 70%, rgba(78, 205, 196, 0.05) 0%, transparent 50%)
-            `
-          }}
         >
-          <motion.div
-            className="text-center mb-32"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            viewport={{ once: true }}
-          >
-            <motion.h3 
-              className="text-5xl lg:text-7xl font-black mb-8"
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              viewport={{ once: true }}
-            >
-              <span className="text-white">DATA</span>
-              <span className="text-cyan-400">_</span>
-              <span className="text-red-400">STREAM</span>
-            </motion.h3>
-            
+          <div className="max-w-6xl mx-auto">
             <motion.div
-              className="text-lg tracking-[0.4em] opacity-60 uppercase"
+              className="text-center mb-16"
               initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 0.6, y: 0 }}
-              transition={{ duration: 1, delay: 0.5 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
               viewport={{ once: true }}
             >
-              UNIVERSAL FORMAT SUPPORT
+              <h3 className="text-4xl lg:text-5xl font-bold mb-4 text-gray-900">
+                Works With Everything
+              </h3>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Upload any file type and KnowledgeVault will automatically understand, organize, and make it searchable
+              </p>
             </motion.div>
-          </motion.div>
 
-          {/* Flowing Data Stream */}
-          <div className="relative max-w-6xl mx-auto">
-            <motion.div
-              className="flex justify-center items-center gap-16 flex-wrap"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              viewport={{ once: true }}
-            >
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
               {fileTypes.map((type, index) => (
                 <motion.div
                   key={type.label}
-                  className="relative group"
-                  initial={{ opacity: 0, y: 100 }}
+                  className="text-center group cursor-pointer"
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ 
-                    duration: 0.8, 
-                    delay: index * 0.1,
-                    type: "spring",
-                    stiffness: 100 
+                    duration: 0.5, 
+                    delay: index * 0.1
                   }}
                   viewport={{ once: true }}
-                  whileHover={{ 
-                    scale: 1.2,
-                    rotateZ: 10,
-                    y: -20
-                  }}
+                  whileHover={{ scale: 1.05, y: -5 }}
                   data-testid={`file-type-${type.label.toLowerCase()}`}
                 >
-                  {/* Connection Lines */}
-                  {index < fileTypes.length - 1 && (
-                    <motion.div
-                      className="absolute top-1/2 left-full w-16 h-0.5 bg-gradient-to-r from-white/30 to-transparent hidden lg:block"
-                      initial={{ scaleX: 0 }}
-                      whileInView={{ scaleX: 1 }}
-                      transition={{ duration: 0.8, delay: index * 0.1 + 0.5 }}
-                      viewport={{ once: true }}
-                    />
-                  )}
-
-                  {/* Data Node */}
-                  <motion.div 
-                    className="w-24 h-24 border-2 border-white/30 bg-black/50 backdrop-blur-sm flex items-center justify-center cursor-pointer relative overflow-hidden"
-                    style={{
-                      clipPath: index % 2 === 0 ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' : 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)'
-                    }}
-                    whileHover={{
-                      borderColor: ['#FF6B6B', '#4ECDC4', '#45B7D1'][index % 3],
-                      boxShadow: `0 0 30px ${['#FF6B6B', '#4ECDC4', '#45B7D1'][index % 3]}50`
-                    }}
-                    animate={{
-                      borderColor: [
-                        'rgba(255, 255, 255, 0.3)',
-                        ['#FF6B6B', '#4ECDC4', '#45B7D1'][index % 3] + '80',
-                        'rgba(255, 255, 255, 0.3)'
-                      ]
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      delay: index * 0.5,
-                      ease: "easeInOut"
-                    }}
-                  >
-                    <type.icon 
-                      className="w-8 h-8 text-white group-hover:scale-125 transition-transform duration-300" 
-                    />
-                    
-                    {/* Scanning Effect */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                      animate={{
-                        x: ['-100%', '100%']
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        delay: index * 0.3,
-                        ease: "linear"
-                      }}
-                    />
-                  </motion.div>
-
-                  {/* Label */}
-                  <motion.div
-                    className="mt-6 text-center"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 + 0.8 }}
-                    viewport={{ once: true }}
-                  >
-                    <span className="text-sm font-mono tracking-[0.2em] text-white/80 uppercase">
-                      {type.label}
-                    </span>
-                    <div className="text-xs text-white/40 mt-1 font-mono">
-                      PROTOCOL_ACTIVE
-                    </div>
-                  </motion.div>
-
-                  {/* Floating Particles */}
-                  {[...Array(5)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute w-1 h-1 bg-white rounded-full opacity-40"
-                      style={{
-                        top: `${20 + Math.random() * 60}%`,
-                        left: `${20 + Math.random() * 60}%`,
-                      }}
-                      animate={{
-                        y: [0, -30, 0],
-                        opacity: [0.4, 0.8, 0.4],
-                        scale: [1, 1.5, 1]
-                      }}
-                      transition={{
-                        duration: 2 + Math.random(),
-                        repeat: Infinity,
-                        delay: Math.random() * 2,
-                        ease: "easeInOut"
-                      }}
-                    />
-                  ))}
+                  <div className="w-20 h-20 mx-auto mb-4 bg-white rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 flex items-center justify-center border border-gray-100">
+                    <type.icon className={`w-10 h-10 ${type.color} group-hover:scale-110 transition-transform duration-300`} />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                    {type.label}
+                  </span>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Auto-indexed
+                  </div>
                 </motion.div>
               ))}
-            </motion.div>
-
-            {/* Central Processing Hub */}
+            </div>
+            
+            {/* Demo Search */}
             <motion.div
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 -z-10"
-              initial={{ opacity: 0, scale: 0 }}
-              whileInView={{ opacity: 0.3, scale: 1 }}
-              transition={{ duration: 1, delay: 1 }}
+              className="mt-16 max-w-2xl mx-auto"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
               viewport={{ once: true }}
             >
-              <motion.div
-                className="w-full h-full border border-white/20 rounded-full"
-                animate={{
-                  rotateZ: [0, 360],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{
-                  duration: 10,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              >
-                <Brain className="w-8 h-8 text-white/60 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-              </motion.div>
+              <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                <div className="flex items-center gap-3 mb-4 text-gray-500">
+                  <Search className="w-5 h-5" />
+                  <span className="text-sm font-medium">Example natural language searches:</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    "Show me vacation photos from last summer",
+                    "Find my tax documents from 2024",
+                    "Videos about machine learning",
+                    "Articles I saved about productivity"
+                  ].map((query, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm text-gray-600 p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="italic">"{query}"</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           </div>
         </section>
 
-        {/* Final CTA Section - Artistic Conclusion */}
+        {/* CTA Section - Clean & Compelling */}
         <section 
-          className="min-h-screen flex items-center justify-center px-6 relative" 
+          className="py-20 px-6 lg:px-12 bg-gradient-to-br from-blue-50 to-indigo-100" 
           data-section="3"
           data-testid="cta-section"
         >
-          <div className="max-w-4xl mx-auto text-center relative">
-            {/* Glitch Effect Title */}
+          <div className="max-w-4xl mx-auto text-center">
             <motion.div
-              className="relative mb-16"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 1 }}
-              viewport={{ once: true }}
-            >
-              <motion.h2
-                className="text-6xl lg:text-8xl font-black leading-none"
-                style={{ fontFamily: 'Inter, sans-serif' }}
-                animate={{
-                  textShadow: [
-                    '0 0 0 transparent',
-                    '2px 0 0 #FF6B6B, -2px 0 0 #4ECDC4',
-                    '0 0 0 transparent'
-                  ]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  repeatDelay: 3
-                }}
-              >
-                <span className="text-white">INIT</span>
-                <span className="text-red-400">IATE</span>
-                <br />
-                <span className="text-cyan-400">CONN</span>
-                <span className="text-blue-400">ECTION</span>
-              </motion.h2>
-              
-              {/* Glitch Lines */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                animate={{
-                  opacity: [0, 0.7, 0],
-                  scaleX: [1, 1.02, 1]
-                }}
-                transition={{
-                  duration: 0.1,
-                  repeat: Infinity,
-                  repeatDelay: 5,
-                  times: [0, 0.5, 1]
-                }}
-              >
-                <div className="absolute top-1/4 left-0 right-0 h-0.5 bg-white opacity-50" />
-                <div className="absolute top-3/4 left-0 right-0 h-0.5 bg-cyan-400 opacity-50" />
-              </motion.div>
-            </motion.div>
-
-            {/* Subtitle */}
-            <motion.p
-              className="text-xl lg:text-2xl text-white/80 mb-16 tracking-[0.1em]"
               initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 0.8, y: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
               viewport={{ once: true }}
             >
-              ESTABLISH NEURAL LINK TO INFINITE KNOWLEDGE
-            </motion.p>
-
-            {/* Action Buttons */}
-            <motion.div
-              className="flex flex-col lg:flex-row items-center justify-center gap-8 mb-16"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              viewport={{ once: true }}
-            >
-              <motion.div
-                className="relative group"
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
+              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                Ready to Transform Your Digital Life?
+              </h2>
+              <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                Join thousands of professionals who have revolutionized how they organize and access their knowledge with AI-powered search and automatic organization.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
                 <Button 
                   onClick={handleGetStarted}
-                  className="bg-transparent border-2 border-red-400 text-red-400 hover:bg-red-400 hover:text-black px-16 py-6 text-xl font-light tracking-[0.2em] uppercase transition-all duration-500 relative overflow-hidden"
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                   data-testid="cta-get-started"
                 >
-                  <motion.div
-                    className="absolute inset-0 bg-red-400"
-                    initial={{ x: "-100%" }}
-                    whileHover={{ x: "0%" }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <span className="relative z-10">ENGAGE_SYSTEM</span>
+                  Start for Free
+                  <Zap className="ml-2 w-5 h-5" />
                 </Button>
                 
-                {/* Pulse Ring */}
-                <motion.div
-                  className="absolute inset-0 border-2 border-red-400 pointer-events-none"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0, 0.5, 0]
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeOut"
-                  }}
-                />
-              </motion.div>
-            </motion.div>
-
-            {/* System Status */}
-            <motion.div
-              className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center opacity-60"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 0.6, y: 0 }}
-              transition={{ duration: 1, delay: 0.8 }}
-              viewport={{ once: true }}
-            >
-              {[
-                { label: 'NEURAL_NODES', value: 'ACTIVE' },
-                { label: 'SECURITY_LEVEL', value: 'MAXIMUM' },
-                { label: 'PROCESSING_POWER', value: 'UNLIMITED' },
-                { label: 'CONNECTION_STATUS', value: 'READY' }
-              ].map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  className="border border-white/20 p-4 font-mono"
-                  whileHover={{ 
-                    borderColor: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'][index],
-                    backgroundColor: `${['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'][index]}10`
-                  }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="text-xs tracking-[0.2em] mb-2 uppercase opacity-60">
-                    {stat.label}
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <Check className="w-4 h-4 text-green-600" />
+                    No credit card required
                   </div>
-                  <div 
-                    className="text-sm font-bold"
-                    style={{ color: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'][index] }}
-                  >
-                    {stat.value}
+                  <div className="flex items-center gap-1">
+                    <Check className="w-4 h-4 text-green-600" />
+                    Free forever plan
                   </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
+                </div>
+              </div>
 
-          {/* Background Matrix Effect */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-            {[...Array(20)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute text-xs font-mono text-green-400"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                }}
-                animate={{
-                  opacity: [0, 1, 0],
-                  y: [0, -50]
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  delay: Math.random() * 5,
-                  ease: "linear"
-                }}
-              >
-                {Math.random().toString(36).substr(2, 8).toUpperCase()}
-              </motion.div>
-            ))}
+              {/* Trust Indicators */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 opacity-60">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600 mb-1">50+</div>
+                  <div className="text-sm text-gray-600">File Types Supported</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600 mb-1">99.9%</div>
+                  <div className="text-sm text-gray-600">Uptime</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600 mb-1">AES-256</div>
+                  <div className="text-sm text-gray-600">Encryption</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600 mb-1">∞</div>
+                  <div className="text-sm text-gray-600">Storage</div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </section>
 
-        {/* Footer - Minimal System Info */}
-        <footer className="px-6 lg:px-12 py-8 border-t border-white/10 bg-black/50 backdrop-blur-sm" data-testid="footer">
+        {/* Footer - Clean & Professional */}
+        <footer className="px-6 lg:px-12 py-8 border-t border-gray-200 bg-white" data-testid="footer">
           <div className="flex flex-col sm:flex-row justify-between items-center max-w-6xl mx-auto">
-            <div className="flex items-center gap-4 mb-4 sm:mb-0 font-mono">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm text-white/60 tracking-[0.2em] uppercase">
-                KNOWLEDGEVAULT_SYSTEM_V2.5.0
-              </span>
+            <div className="flex items-center gap-3 mb-4 sm:mb-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Brain className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-semibold text-gray-900">KnowledgeVault</span>
             </div>
             
-            <div className="text-xs text-white/40 font-mono tracking-wider">
-              © 2025 NEURAL_CORPORATION. ALL_RIGHTS_RESERVED.
+            <div className="text-sm text-gray-600">
+              © 2025 KnowledgeVault. All rights reserved.
             </div>
           </div>
         </footer>
