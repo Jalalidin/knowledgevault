@@ -582,6 +582,44 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
+  async addTagToKnowledgeItem(itemId: string, tagName: string): Promise<void> {
+    // First, find or create the tag
+    let existingTag = await db.select().from(tags).where(eq(tags.name, tagName)).limit(1);
+    
+    let tagId: string;
+    if (existingTag.length === 0) {
+      // Create the tag if it doesn't exist
+      const newTag = await db.insert(tags).values({
+        id: crypto.randomUUID(),
+        name: tagName,
+        createdAt: new Date(),
+      }).returning();
+      tagId = newTag[0].id;
+    } else {
+      tagId = existingTag[0].id;
+    }
+
+    // Check if the relationship already exists
+    const existingRelation = await db
+      .select()
+      .from(knowledgeItemTags)
+      .where(
+        and(
+          eq(knowledgeItemTags.knowledgeItemId, itemId),
+          eq(knowledgeItemTags.tagId, tagId)
+        )
+      )
+      .limit(1);
+
+    if (existingRelation.length === 0) {
+      // Add the tag-item relationship
+      await db.insert(knowledgeItemTags).values({
+        knowledgeItemId: itemId,
+        tagId: tagId,
+      });
+    }
+  }
+
   // User AI settings operations
   async getUserAiSettings(userId: string): Promise<UserAiSettings | undefined> {
     const [settings] = await db

@@ -390,17 +390,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process text content
+  // Process text content and create knowledge item
   app.post("/api/process-text", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { content } = req.body;
       
       if (!content || typeof content !== "string") {
         return res.status(400).json({ error: "Content is required" });
       }
 
+      // Process the text content with AI
       const processedContent = await processTextContent(content);
-      res.json({ processedContent });
+      
+      // Create a knowledge item with the processed content
+      const knowledgeItemData = insertKnowledgeItemSchema.parse({
+        userId,
+        title: processedContent.title || content.substring(0, 50).trim() + (content.length > 50 ? '...' : ''),
+        type: 'text',
+        content,
+        summary: processedContent.summary,
+        isProcessed: true,
+        metadata: {
+          processedAt: new Date().toISOString(),
+          wordCount: content.split(/\s+/).length,
+          contentLength: content.length,
+        }
+      });
+      
+      const knowledgeItem = await storage.createKnowledgeItem(knowledgeItemData);
+      
+      // Add tags if generated
+      if (processedContent.tags && processedContent.tags.length > 0) {
+        for (const tagName of processedContent.tags) {
+          try {
+            await storage.addTagToKnowledgeItem(knowledgeItem.id, tagName);
+          } catch (error) {
+            console.error("Error adding tag:", error);
+            // Continue even if tag addition fails
+          }
+        }
+      }
+      
+      // Return the created knowledge item
+      const itemWithTags = await storage.getKnowledgeItem(knowledgeItem.id);
+      res.json(itemWithTags);
     } catch (error) {
       console.error("Error processing text:", error);
       res.status(500).json({ error: "Failed to process text" });
@@ -603,7 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id: conversationId } = req.params;
-      const { content } = req.body;
+      const { content, model, provider, temperature, selectedItems } = req.body;
       
       if (!content || typeof content !== "string") {
         return res.status(400).json({ error: "Message content is required" });
@@ -639,9 +673,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user's AI settings
       const userSettings = await storage.getUserAiSettings(userId);
       
-      // Retrieve relevant knowledge items
-      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
-      const relevantItems = await searchKnowledgeBase(content, allItems);
+      // Get relevant knowledge items - either selected ones or search results
+      let relevantItems;
+      if (selectedItems && selectedItems.length > 0) {
+        // Use specifically selected items
+        relevantItems = [];
+        for (const itemId of selectedItems) {
+          const item = await storage.getKnowledgeItem(itemId);
+          if (item && item.userId === userId) {
+            relevantItems.push(item);
+          }
+        }
+      } else {
+        // Search for relevant items
+        const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+        relevantItems = await searchKnowledgeBase(content, allItems);
+      }
       
       // Send sources info
       res.write(`data: ${JSON.stringify({ 
@@ -655,11 +702,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let fullResponse = '';
       
+      // Override AI settings if provided in request
+      const effectiveSettings = {
+        ...userSettings,
+        preferredProvider: provider || userSettings?.preferredProvider || 'gemini',
+        preferredModel: model || userSettings?.preferredModel || 'gemini-2.5-flash',
+        chatSettings: {
+          ...userSettings?.chatSettings,
+          temperature: temperature !== undefined ? temperature : userSettings?.chatSettings?.temperature || 0.7
+        }
+      };
+      
       // Generate AI response using RAG with streaming
       const ragResponse = await aiService.generateRagResponseStream(
         content,
         relevantItems,
-        userSettings || undefined,
+        effectiveSettings,
         (chunk: string) => {
           fullResponse += chunk;
           res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);

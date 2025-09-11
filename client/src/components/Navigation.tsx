@@ -66,6 +66,20 @@ export default function Navigation({ onSearch }: NavigationProps) {
             
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-2 ml-8">
+              <Link href="/">
+                <Button
+                  variant={isActive("/") ? "default" : "ghost"}
+                  size="sm"
+                  className="flex items-center gap-2"
+                  data-testid="nav-home"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z" />
+                  </svg>
+                  Knowledge
+                </Button>
+              </Link>
               <Link href="/chat">
                 <Button
                   variant={isActive("/chat") ? "default" : "ghost"}
@@ -74,7 +88,7 @@ export default function Navigation({ onSearch }: NavigationProps) {
                   data-testid="nav-chat"
                 >
                   <MessageSquare className="h-4 w-4" />
-                  Chat
+                  AI Chat
                 </Button>
               </Link>
               <Link href="/wechat">

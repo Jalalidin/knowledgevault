@@ -9,7 +9,28 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, MessageSquare, Send, Bot, User, ExternalLink, Plus, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { 
+  Trash2, 
+  MessageSquare, 
+  Send, 
+  Bot, 
+  User, 
+  ExternalLink, 
+  Plus, 
+  Loader2, 
+  Copy, 
+  RotateCcw, 
+  StopCircle,
+  FileText,
+  Image,
+  Link,
+  Sparkles,
+  Settings,
+  ChevronDown
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 
@@ -37,6 +58,14 @@ interface ConversationWithMessages extends Conversation {
   messages: ChatMessage[];
 }
 
+interface KnowledgeItem {
+  id: string;
+  title: string;
+  type: string;
+  summary?: string;
+  isProcessed: boolean;
+}
+
 export default function ImprovedChatPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -44,8 +73,35 @@ export default function ImprovedChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingSources, setStreamingSources] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [contextItems, setContextItems] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash");
+  const [selectedProvider, setSelectedProvider] = useState("gemini");
+  const [temperature, setTemperature] = useState(0.7);
+  const [showSettings, setShowSettings] = useState(false);
+  const [selectedKnowledgeItems, setSelectedKnowledgeItems] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  
+  // Handle URL context parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const context = urlParams.get('context');
+    if (context) {
+      const itemIds = context.split(',').filter(id => id.trim());
+      setSelectedKnowledgeItems(itemIds);
+      setContextItems(itemIds);
+      
+      // If we have context items, create a new conversation
+      if (itemIds.length > 0) {
+        createConversationMutation.mutate({
+          title: `Chat about ${itemIds.length} item${itemIds.length > 1 ? 's' : ''}`
+        });
+      }
+      
+      // Clear URL parameters after processing
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   // Fetch conversations
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery({
@@ -58,6 +114,18 @@ export default function ImprovedChatPage() {
     queryKey: ["/api/conversations", selectedConversationId],
     queryFn: () => apiRequest("GET", `/api/conversations/${selectedConversationId}`).then((res: Response) => res.json()),
     enabled: !!selectedConversationId,
+  });
+
+  // Fetch knowledge items for context selection
+  const { data: knowledgeItems = [], isLoading: knowledgeLoading } = useQuery<KnowledgeItem[]>({
+    queryKey: ["/api/knowledge-items"],
+    queryFn: () => apiRequest("GET", "/api/knowledge-items").then((res: Response) => res.json()),
+  });
+
+  // Fetch AI models
+  const { data: aiModels } = useQuery({
+    queryKey: ["/api/ai-models"],
+    queryFn: () => apiRequest("GET", "/api/ai-models").then((res: Response) => res.json()),
   });
 
   // Create conversation mutation
@@ -113,13 +181,19 @@ export default function ImprovedChatPage() {
     setStreamingSources([]);
 
     try {
-      // Make the streaming request
+      // Make the streaming request with model settings
       const response = await fetch(`/api/conversations/${selectedConversationId}/messages/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content: messageContent }),
+        body: JSON.stringify({ 
+          content: messageContent,
+          model: selectedModel,
+          provider: selectedProvider,
+          temperature: temperature,
+          selectedItems: selectedKnowledgeItems
+        }),
       });
 
       if (!response.body) {
@@ -143,7 +217,6 @@ export default function ImprovedChatPage() {
               
               switch (data.type) {
                 case 'user_message':
-                  // User message saved, refresh conversation
                   queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversationId] });
                   break;
                 case 'sources':
@@ -153,7 +226,6 @@ export default function ImprovedChatPage() {
                   setStreamingContent(prev => prev + data.content);
                   break;
                 case 'complete':
-                  // AI response complete, refresh conversation
                   queryClient.invalidateQueries({ queryKey: ["/api/conversations", selectedConversationId] });
                   queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
                   setIsStreaming(false);
@@ -182,6 +254,27 @@ export default function ImprovedChatPage() {
     }
   };
 
+  const handleStopGeneration = () => {
+    setIsStreaming(false);
+    setStreamingContent("");
+    setStreamingSources([]);
+  };
+
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast({ title: "Message copied to clipboard" });
+  };
+
+  const handleRegenerateResponse = async () => {
+    if (!currentConversation?.messages.length || isStreaming) return;
+    
+    const lastUserMessage = [...currentConversation.messages].reverse().find(m => m.role === "user");
+    if (!lastUserMessage) return;
+
+    setNewMessage(lastUserMessage.content);
+    await handleSendMessage();
+  };
+
   const handleCreateConversation = () => {
     const title = newConversationTitle.trim() || `Chat ${new Date().toLocaleDateString()}`;
     createConversationMutation.mutate(title);
@@ -194,286 +287,473 @@ export default function ImprovedChatPage() {
     }
   };
 
+  const toggleKnowledgeItem = (itemId: string) => {
+    setSelectedKnowledgeItems(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'text': return <FileText className="h-3 w-3" />;
+      case 'image': return <Image className="h-3 w-3" />;
+      case 'link': return <Link className="h-3 w-3" />;
+      default: return <FileText className="h-3 w-3" />;
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background" data-testid="improved-chat-page">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-border bg-muted/10">
-        <div className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5" />
-            <h2 className="font-semibold">Conversations</h2>
-          </div>
-          
-          {/* New conversation */}
-          <div className="space-y-3 mb-4">
-            <Input
-              placeholder="Conversation title..."
-              value={newConversationTitle}
-              onChange={(e) => setNewConversationTitle(e.target.value)}
-              data-testid="input-conversation-title"
-            />
-            <Button 
-              onClick={handleCreateConversation}
-              disabled={createConversationMutation.isPending}
-              className="w-full"
-              data-testid="button-create-conversation"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              {createConversationMutation.isPending ? "Creating..." : "New Chat"}
-            </Button>
-          </div>
-          
-          <Separator className="mb-4" />
-          
-          {/* Conversations list */}
-          <ScrollArea className="h-[calc(100vh-250px)]">
-            {conversationsLoading ? (
-              <div className="space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
+        {/* Conversations Panel */}
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          <div className="h-full border-r border-border bg-muted/10 flex flex-col">
+            <div className="p-4 border-b border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageSquare className="h-5 w-5" />
+                <h2 className="font-semibold">Conversations</h2>
               </div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8 text-sm">
-                No conversations yet. Create one to get started!
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {conversations.map((conversation: Conversation) => (
-                  <Card
-                    key={conversation.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedConversationId === conversation.id 
-                        ? "ring-2 ring-primary shadow-md" 
-                        : "hover:bg-muted/50"
-                    }`}
-                    onClick={() => setSelectedConversationId(conversation.id)}
-                    data-testid={`conversation-${conversation.id}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate text-sm">{conversation.title}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(conversation.updatedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteConversationMutation.mutate(conversation.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          data-testid={`button-delete-${conversation.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
-      </div>
-
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col">
-        {selectedConversationId ? (
-          <>
-            {/* Chat header */}
-            <div className="border-b border-border p-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <h1 className="font-semibold text-lg" data-testid="chat-title">
-                {currentConversation?.title || "Loading..."}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Chat with your knowledge base using AI
-              </p>
-            </div>
-
-            {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              {conversationLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex gap-3">
-                      <Skeleton className="h-8 w-8 rounded-full" />
-                      <div className="flex-1">
-                        <Skeleton className="h-4 w-20 mb-2" />
-                        <Skeleton className="h-16 w-full" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : !currentConversation?.messages.length && !isStreaming ? (
-                <div className="text-center text-muted-foreground py-16">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">Start your conversation</h3>
-                  <p className="text-sm">Ask anything about your knowledge base!</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {currentConversation?.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className="flex gap-4"
-                      data-testid={`message-${message.role}-${message.id}`}
-                    >
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarFallback className={message.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary"}>
-                          {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            {message.role === "user" ? "You" : "AI Assistant"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(message.createdAt).toLocaleTimeString()}
-                          </span>
-                        </div>
-                        
-                        <Card className="max-w-none">
-                          <CardContent className="p-4">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                              <ReactMarkdown>{message.content}</ReactMarkdown>
-                            </div>
-                            
-                            {/* Sources for AI messages */}
-                            {message.role === "assistant" && message.metadata?.sources && message.metadata.sources.length > 0 && (
-                              <div className="mt-4 pt-3 border-t border-border">
-                                <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                                  <ExternalLink className="h-4 w-4" />
-                                  Sources:
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {message.metadata.sources.map((source) => (
-                                    <Badge key={source.id} variant="outline" className="text-xs" data-testid={`source-${source.id}`}>
-                                      {source.title} ({source.type})
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Model info for AI messages */}
-                            {message.role === "assistant" && message.metadata?.model && (
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                {message.metadata.provider} • {message.metadata.model}
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Streaming message */}
-                  {isStreaming && (
-                    <div className="flex gap-4" data-testid="streaming-message">
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarFallback className="bg-secondary">
-                          <Bot className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">AI Assistant</span>
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span className="text-xs text-muted-foreground">typing...</span>
-                        </div>
-                        
-                        <Card className="max-w-none">
-                          <CardContent className="p-4">
-                            {streamingContent ? (
-                              <div className="prose prose-sm max-w-none dark:prose-invert">
-                                <ReactMarkdown>{streamingContent}</ReactMarkdown>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span className="text-sm">Thinking...</span>
-                              </div>
-                            )}
-                            
-                            {/* Streaming sources */}
-                            {streamingSources.length > 0 && (
-                              <div className="mt-4 pt-3 border-t border-border">
-                                <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                                  <ExternalLink className="h-4 w-4" />
-                                  Sources:
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {streamingSources.map((source) => (
-                                    <Badge key={source.id} variant="outline" className="text-xs">
-                                      {source.title} ({source.type})
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </ScrollArea>
-
-            {/* Message input */}
-            <div className="border-t border-border p-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="flex gap-3">
+              
+              {/* New conversation */}
+              <div className="space-y-3">
                 <Input
-                  placeholder="Ask anything about your knowledge base..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={isStreaming}
-                  className="flex-1"
-                  data-testid="input-message"
+                  placeholder="Conversation title..."
+                  value={newConversationTitle}
+                  onChange={(e) => setNewConversationTitle(e.target.value)}
+                  data-testid="input-conversation-title"
                 />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isStreaming}
-                  data-testid="button-send-message"
+                <Button 
+                  onClick={handleCreateConversation}
+                  disabled={createConversationMutation.isPending}
+                  className="w-full"
+                  size="sm"
+                  data-testid="button-create-conversation"
                 >
-                  {isStreaming ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Chat
                 </Button>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-muted-foreground">
-              <MessageSquare className="h-16 w-16 mx-auto mb-6 opacity-50" />
-              <h2 className="text-xl font-medium mb-2">Welcome to KnowledgeVault Chat</h2>
-              <p className="text-sm mb-4 max-w-md">Create a new conversation to start chatting with your knowledge base using AI</p>
-              <Button onClick={() => handleCreateConversation()} className="mt-4">
-                <Plus className="h-4 w-4 mr-2" />
-                Start New Chat
-              </Button>
-            </div>
+            
+            {/* Conversations list */}
+            <ScrollArea className="flex-1 p-2">
+              {conversationsLoading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8 text-sm px-4">
+                  No conversations yet. Create one to get started!
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {conversations.map((conversation: Conversation) => (
+                    <Card
+                      key={conversation.id}
+                      className={`cursor-pointer transition-all hover:shadow-sm ${
+                        selectedConversationId === conversation.id 
+                          ? "ring-2 ring-primary bg-primary/5" 
+                          : "hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedConversationId(conversation.id)}
+                      data-testid={`conversation-${conversation.id}`}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate text-sm">{conversation.title}</h4>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(conversation.updatedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteConversationMutation.mutate(conversation.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                            data-testid={`button-delete-${conversation.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
           </div>
-        )}
-      </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Main Chat Panel */}
+        <ResizablePanel defaultSize={55} minSize={40}>
+          <div className="h-full flex flex-col">
+            {selectedConversationId ? (
+              <>
+                {/* Chat header with controls */}
+                <div className="border-b border-border p-4 bg-background/95 backdrop-blur">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-semibold text-lg" data-testid="chat-title">
+                        {currentConversation?.title || "Loading..."}
+                      </h1>
+                      <p className="text-sm text-muted-foreground">
+                        Chat with your knowledge base using AI
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSettings(!showSettings)}
+                        data-testid="button-toggle-settings"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Chat Settings */}
+                  {showSettings && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">AI Provider</label>
+                          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {aiModels?.providers?.map((provider: string) => (
+                                <SelectItem key={provider} value={provider}>
+                                  {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Model</label>
+                          <Select value={selectedModel} onValueChange={setSelectedModel}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {aiModels?.models?.[selectedProvider]?.map((model: string) => (
+                                <SelectItem key={model} value={model}>
+                                  {model}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Messages */}
+                <ScrollArea className="flex-1 p-4">
+                  {conversationLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="flex gap-3">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <div className="flex-1">
+                            <Skeleton className="h-4 w-20 mb-2" />
+                            <Skeleton className="h-16 w-full" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : !currentConversation?.messages.length && !isStreaming ? (
+                    <div className="text-center text-muted-foreground py-16">
+                      <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">Start your conversation</h3>
+                      <p className="text-sm">Ask anything about your knowledge base!</p>
+                      <div className="mt-6 flex flex-wrap gap-2 justify-center">
+                        <Badge variant="outline">What's in my documents?</Badge>
+                        <Badge variant="outline">Summarize recent uploads</Badge>
+                        <Badge variant="outline">Find key insights</Badge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {currentConversation?.messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className="flex gap-4 group"
+                          data-testid={`message-${message.role}-${message.id}`}
+                        >
+                          <Avatar className="h-8 w-8 mt-1">
+                            <AvatarFallback className={message.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary"}>
+                              {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">
+                                {message.role === "user" ? "You" : "AI Assistant"}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(message.createdAt).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            
+                            <Card className="max-w-none">
+                              <CardContent className="p-4">
+                                <div className="prose prose-sm max-w-none dark:prose-invert">
+                                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                                </div>
+                                
+                                {/* Message Controls */}
+                                <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleCopyMessage(message.content)}
+                                    data-testid={`button-copy-${message.id}`}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                  {message.role === "assistant" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={handleRegenerateResponse}
+                                      disabled={isStreaming}
+                                      data-testid={`button-regenerate-${message.id}`}
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Streaming message */}
+                      {isStreaming && (
+                        <div className="flex gap-4" data-testid="streaming-message">
+                          <Avatar className="h-8 w-8 mt-1">
+                            <AvatarFallback className="bg-secondary">
+                              <Bot className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">AI Assistant</span>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span className="text-xs text-muted-foreground">typing...</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleStopGeneration}
+                                data-testid="button-stop-generation"
+                              >
+                                <StopCircle className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            
+                            <Card className="max-w-none">
+                              <CardContent className="p-4">
+                                {streamingContent ? (
+                                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                                    <ReactMarkdown>{streamingContent}</ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span className="text-sm">Thinking...</span>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div ref={messagesEndRef} />
+                    </div>
+                  )}
+                </ScrollArea>
+
+                {/* Message input */}
+                <div className="border-t border-border p-4 bg-background/95 backdrop-blur">
+                  <div className="space-y-3">
+                    {/* Selected Knowledge Items */}
+                    {selectedKnowledgeItems.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-sm text-muted-foreground">Context:</span>
+                        {selectedKnowledgeItems.map(itemId => {
+                          const item = knowledgeItems.find(k => k.id === itemId);
+                          return item ? (
+                            <Badge key={itemId} variant="secondary" className="text-xs">
+                              {getTypeIcon(item.type)}
+                              <span className="ml-1">{item.title}</span>
+                              <button
+                                onClick={() => toggleKnowledgeItem(itemId)}
+                                className="ml-1 hover:text-destructive"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-3">
+                      <Textarea
+                        placeholder="Ask anything about your knowledge base..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        disabled={isStreaming}
+                        className="min-h-[44px] max-h-32 flex-1 resize-none"
+                        data-testid="input-message"
+                      />
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim() || isStreaming}
+                          data-testid="button-send-message"
+                        >
+                          {isStreaming ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-muted-foreground max-w-md">
+                  <MessageSquare className="h-16 w-16 mx-auto mb-6 opacity-50" />
+                  <h2 className="text-xl font-medium mb-2">Welcome to KnowledgeVault Chat</h2>
+                  <p className="text-sm mb-6">Create a new conversation to start chatting with your knowledge base using AI</p>
+                  <Button onClick={() => handleCreateConversation()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Start New Chat
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Sources & Context Panel */}
+        <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+          <div className="h-full border-l border-border bg-muted/5 flex flex-col">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Context & Sources
+              </h3>
+            </div>
+            
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-4">
+                {/* Live Sources */}
+                {(streamingSources.length > 0 || (currentConversation?.messages.slice(-1)[0]?.metadata?.sources?.length || 0) > 0) && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                      <ExternalLink className="h-3 w-3" />
+                      Active Sources
+                    </h4>
+                    <div className="space-y-2">
+                      {(streamingSources.length > 0 ? streamingSources : currentConversation?.messages.slice(-1)[0]?.metadata?.sources || []).map((source) => (
+                        <Card key={source.id} className="p-3" data-testid={`active-source-${source.id}`}>
+                          <div className="flex items-start gap-2">
+                            {getTypeIcon(source.type)}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{source.title}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{source.type}</p>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Knowledge Base Selection */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Select Context</h4>
+                  <p className="text-xs text-muted-foreground mb-3">Choose specific items for AI context</p>
+                  {knowledgeLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : knowledgeItems.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-4 text-xs">
+                      No knowledge items yet. Upload some content to get started!
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {knowledgeItems.slice(0, 10).map((item) => (
+                        <Card
+                          key={item.id}
+                          className={`p-2 cursor-pointer transition-all hover:shadow-sm ${
+                            selectedKnowledgeItems.includes(item.id) 
+                              ? "ring-2 ring-primary bg-primary/5" 
+                              : "hover:bg-muted/50"
+                          }`}
+                          onClick={() => toggleKnowledgeItem(item.id)}
+                          data-testid={`knowledge-item-${item.id}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {getTypeIcon(item.type)}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{item.title}</p>
+                              {item.summary && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.summary}</p>
+                              )}
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant={item.isProcessed ? "default" : "secondary"} className="text-xs h-4">
+                                  {item.isProcessed ? "Ready" : "Processing"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }
