@@ -582,15 +582,18 @@ export class DatabaseStorage implements IStorage {
       );
   }
 
-  async addTagToKnowledgeItem(itemId: string, tagName: string): Promise<void> {
-    // First, find or create the tag
-    let existingTag = await db.select().from(tags).where(eq(tags.name, tagName)).limit(1);
+  async addTagToKnowledgeItem(itemId: string, tagName: string, userId: string): Promise<void> {
+    // First, find or create the tag for this user
+    let existingTag = await db.select().from(tags).where(
+      and(eq(tags.name, tagName), eq(tags.userId, userId))
+    ).limit(1);
     
     let tagId: string;
     if (existingTag.length === 0) {
       // Create the tag if it doesn't exist
       const newTag = await db.insert(tags).values({
         name: tagName,
+        userId: userId,
         createdAt: new Date(),
       }).returning();
       tagId = newTag[0].id;

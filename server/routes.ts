@@ -424,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (processedContent.tags && processedContent.tags.length > 0) {
         for (const tagName of processedContent.tags) {
           try {
-            await storage.addTagToKnowledgeItem(knowledgeItem.id, tagName);
+            await storage.addTagToKnowledgeItem(knowledgeItem.id, tagName, userId);
           } catch (error) {
             console.error("Error adding tag:", error);
             // Continue even if tag addition fails
@@ -703,15 +703,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let fullResponse = '';
       
       // Override AI settings if provided in request
-      const effectiveSettings = {
+      const effectiveSettings = userSettings ? {
         ...userSettings,
-        preferredProvider: provider || userSettings?.preferredProvider || 'gemini',
-        preferredModel: model || userSettings?.preferredModel || 'gemini-2.5-flash',
+        preferredProvider: provider || userSettings.preferredProvider || 'gemini',
+        preferredModel: model || userSettings.preferredModel || 'gemini-2.5-flash',
         chatSettings: {
-          ...userSettings?.chatSettings,
-          temperature: temperature !== undefined ? temperature : userSettings?.chatSettings?.temperature || 0.7
+          ...(userSettings.chatSettings || {}),
+          temperature: temperature !== undefined ? temperature : (userSettings.chatSettings as any)?.temperature || 0.7
         }
-      };
+      } : undefined;
       
       // Generate AI response using RAG with streaming
       const ragResponse = await aiService.generateRagResponseStream(
