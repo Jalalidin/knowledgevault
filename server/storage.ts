@@ -590,7 +590,6 @@ export class DatabaseStorage implements IStorage {
     if (existingTag.length === 0) {
       // Create the tag if it doesn't exist
       const newTag = await db.insert(tags).values({
-        id: crypto.randomUUID(),
         name: tagName,
         createdAt: new Date(),
       }).returning();
