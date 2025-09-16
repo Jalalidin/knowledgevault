@@ -43,10 +43,11 @@ import httpx
 class Settings(BaseSettings):
     database_url: str = os.getenv("DATABASE_URL", "postgresql://localhost/knowledgevault")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
+    secret_key: str = os.getenv("JWT_SECRET_KEY", "dev-only-secret-key-not-for-production")
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     upload_dir: str = "/tmp/uploads"
+    environment: str = os.getenv("ENVIRONMENT", "development")
     
     class Config:
         env_file = ".env"
@@ -98,7 +99,7 @@ class KnowledgeItem(Base):
     file_size = Column('file_size', Integer, key='fileSize')
     mime_type = Column('mime_type', String, key='mimeType')
     object_path = Column('object_path', Text, key='objectPath')
-    metadata = Column('metadata', JSON, key='metadata')
+    item_metadata = Column('metadata', JSON)
     is_processed = Column('is_processed', Boolean, default=False, key='isProcessed')
     processing_error = Column('processing_error', Text, key='processingError')
     created_at = Column('created_at', DateTime, default=func.now(), key='createdAt')
@@ -156,11 +157,72 @@ class ChatMessage(Base):
     conversation_id = Column('conversation_id', String, ForeignKey('conversations.id', ondelete='CASCADE'), nullable=False, key='conversationId')
     role = Column(String(20), nullable=False)  # 'user', 'assistant'
     content = Column(Text, nullable=False)
-    metadata = Column('metadata', JSON, key='metadata')
+    message_metadata = Column('metadata', JSON)
     created_at = Column('created_at', DateTime, default=func.now(), key='createdAt')
     
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
+
+# Response serialization helpers
+def serialize_user(user: User) -> dict:
+    """Convert User ORM object to API response format."""
+    return {
+        "id": user.id,
+        "email": user.email,
+        "firstName": user.first_name,
+        "lastName": user.last_name,
+        "profileImageUrl": user.profile_image_url,
+        "createdAt": user.created_at
+    }
+
+def serialize_knowledge_item(item: KnowledgeItem, include_tags: bool = True) -> dict:
+    """Convert KnowledgeItem ORM object to API response format."""
+    result = {
+        "id": item.id,
+        "title": item.title,
+        "summary": item.summary,
+        "content": item.content,
+        "type": item.type,
+        "fileUrl": item.file_url,
+        "fileName": item.file_name,
+        "fileSize": item.file_size,
+        "mimeType": item.mime_type,
+        "objectPath": item.object_path,
+        "metadata": item.item_metadata,
+        "isProcessed": item.is_processed,
+        "processingError": item.processing_error,
+        "createdAt": item.created_at,
+        "updatedAt": item.updated_at
+    }
+    
+    if include_tags:
+        result["tags"] = [tag.name for tag in item.tags]
+    
+    return result
+
+def serialize_chat_message(message: ChatMessage) -> dict:
+    """Convert ChatMessage ORM object to API response format."""
+    return {
+        "id": message.id,
+        "role": message.role,
+        "content": message.content,
+        "metadata": message.message_metadata,
+        "createdAt": message.created_at
+    }
+
+def serialize_conversation(conversation: Conversation, include_message_count: bool = True) -> dict:
+    """Convert Conversation ORM object to API response format."""
+    result = {
+        "id": conversation.id,
+        "title": conversation.title,
+        "createdAt": conversation.created_at,
+        "updatedAt": conversation.updated_at
+    }
+    
+    if include_message_count:
+        result["message_count"] = len(conversation.messages)
+    
+    return result
 
 # Pydantic Models
 class UserResponse(BaseModel):
@@ -254,8 +316,19 @@ class KnowledgeVaultAgents:
             markdown=True
         )
 
-# Global instances
-agents = KnowledgeVaultAgents()
+# Global instances - agents initialized lazily
+agents = None  # type: Optional[KnowledgeVaultAgents]
+
+def get_agents() -> Optional[KnowledgeVaultAgents]:
+    """Get agents instance, initializing lazily if possible."""
+    global agents
+    if agents is None and settings.openai_api_key:
+        try:
+            agents = KnowledgeVaultAgents()
+        except Exception as e:
+            print(f"Warning: Could not initialize agents: {e}")
+            agents = None
+    return agents
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
@@ -278,23 +351,39 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
+def verify_token(token: str) -> Optional[dict]:
+    """Verify JWT token and return payload."""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        return payload
+    except JWTError:
+        return None
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    """Get current authenticated user with proper error handling."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Invalid authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.algorithm])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
+    
+    # Verify token
+    payload = verify_token(credentials.credentials)
+    if not payload:
+        raise credentials_exception
+        
+    user_id: str = payload.get("sub")
+    if not user_id:
         raise credentials_exception
     
+    # Get user from database
     user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise credentials_exception
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
     return user
 
 # FastAPI Application
@@ -307,7 +396,8 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=["http://localhost:3000", "http://localhost:5000"],
+    allow_origin_regex=r"https://.*\.replit\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -324,20 +414,28 @@ Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
+    ag = get_agents()
     return {
         "status": "healthy",
         "version": "2.0.0",
-        "agents": ["DocumentProcessor", "SearchAgent", "ConversationAgent", "SummarizationAgent"],
+        "agents_available": bool(ag),
         "database": "connected"
     }
 
 @app.post("/api/auth/login")
 async def login(email: str = Form(), password: str = Form(), db: Session = Depends(get_db)):
-    """Simple login endpoint (for demo purposes - replace with Replit Auth)."""
-    # This is a simplified version - in production use proper Replit Auth
+    """Authentication endpoint - secure in production."""
+    
+    # Prevent insecure demo login in production
+    if settings.environment != "development":
+        raise HTTPException(
+            status_code=403, 
+            detail="Password/OAuth authentication required in production"
+        )
+    
+    # Demo login only in development
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        # Create user if doesn't exist (for demo)
         user = User(
             email=email,
             first_name="Demo",
@@ -348,12 +446,12 @@ async def login(email: str = Form(), password: str = Form(), db: Session = Depen
         db.refresh(user)
     
     access_token = create_access_token(data={"sub": user.id})
-    return {"access_token": access_token, "token_type": "bearer", "user": UserResponse.from_orm(user)}
+    return {"access_token": access_token, "token_type": "bearer", "user": serialize_user(user)}
 
 @app.get("/api/auth/user")
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current authenticated user information."""
-    return UserResponse.from_orm(current_user)
+    return serialize_user(current_user)
 
 @app.get("/api/knowledge-items")
 async def get_knowledge_items(
@@ -368,13 +466,7 @@ async def get_knowledge_items(
     ).order_by(KnowledgeItem.created_at.desc()).offset(offset).limit(limit).all()
     
     # Convert to response format with tags
-    response_items = []
-    for item in items:
-        item_dict = KnowledgeItemResponse.from_orm(item).dict()
-        item_dict['tags'] = [tag.name for tag in item.tags]
-        response_items.append(item_dict)
-    
-    return response_items
+    return [serialize_knowledge_item(item) for item in items]
 
 @app.get("/api/knowledge-items/{item_id}")
 async def get_knowledge_item(
@@ -391,9 +483,7 @@ async def get_knowledge_item(
     if not item:
         raise HTTPException(status_code=404, detail="Knowledge item not found")
     
-    item_dict = KnowledgeItemResponse.from_orm(item).dict()
-    item_dict['tags'] = [tag.name for tag in item.tags]
-    return item_dict
+    return serialize_knowledge_item(item)
 
 @app.post("/api/knowledge-items")
 async def create_knowledge_item(
@@ -407,7 +497,10 @@ async def create_knowledge_item(
     if item_data.content:
         try:
             analysis_prompt = f"Analyze this content and suggest improvements:\n\nTitle: {item_data.title}\nContent: {item_data.content}\n\nProvide: 1) Improved title if needed, 2) Summary, 3) Suggested tags"
-            analysis_response = agents.document_processor.run(analysis_prompt)
+            ag = get_agents()
+            if not ag:
+                raise Exception("AI unavailable")
+            analysis_response = ag.document_processor.run(analysis_prompt)
             
             # Extract suggestions from agent response (simplified parsing)
             if "Summary:" in analysis_response.content:
@@ -424,7 +517,7 @@ async def create_knowledge_item(
         summary=item_data.summary,
         content=item_data.content,
         type=item_data.type,
-        metadata=item_data.metadata or {},
+        item_metadata=item_data.metadata or {},
         is_processed=True  # Mark as processed since we used agent
     )
     
@@ -453,9 +546,7 @@ async def create_knowledge_item(
         db.commit()
     
     # Return response
-    item_dict = KnowledgeItemResponse.from_orm(db_item).dict()
-    item_dict['tags'] = [tag.name for tag in db_item.tags]
-    return item_dict
+    return serialize_knowledge_item(db_item)
 
 @app.post("/api/upload")
 async def upload_file(
@@ -483,7 +574,10 @@ async def upload_file(
     try:
         process_prompt = f"Process this uploaded file:\n\nFilename: {file.filename}\nContent Type: {file.content_type}\nContent: {file_content[:1000]}...\n\nProvide: 1) Title, 2) Summary, 3) Key concepts, 4) Suggested tags (comma-separated)"
         
-        processing_response = agents.document_processor.run(process_prompt)
+        ag = get_agents()
+        if not ag:
+            raise Exception("AI unavailable")
+        processing_response = ag.document_processor.run(process_prompt)
         
         # Parse agent response (simplified)
         title = file.filename
@@ -517,7 +611,7 @@ async def upload_file(
         file_url=str(file_path),
         file_size=len(content),
         mime_type=file.content_type,
-        metadata={"original_filename": file.filename},
+        item_metadata={"original_filename": file.filename},
         is_processed=True
     )
     
@@ -544,9 +638,7 @@ async def upload_file(
     db.commit()
     
     # Return response
-    item_dict = KnowledgeItemResponse.from_orm(db_item).dict()
-    item_dict['tags'] = [tag.name for tag in db_item.tags]
-    return item_dict
+    return serialize_knowledge_item(db_item)
 
 @app.post("/api/chat")
 async def chat(
@@ -613,7 +705,10 @@ async def chat(
     try:
         chat_prompt = f"User question: {chat_request.message}\n\nKnowledge base context:\n{context}\n\nProvide a helpful response based on the available context."
         
-        agent_response = agents.conversation_agent.run(chat_prompt)
+        ag = get_agents()
+        if not ag:
+            raise Exception("AI unavailable")
+        agent_response = ag.conversation_agent.run(chat_prompt)
         assistant_content = agent_response.content
         
     except Exception as e:
@@ -625,7 +720,7 @@ async def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_content,
-        metadata={"sources": relevant_items, "agent_used": "ConversationAgent"}
+        message_metadata={"sources": relevant_items, "agent_used": "ConversationAgent"}
     )
     db.add(assistant_message)
     db.commit()
@@ -647,16 +742,7 @@ async def get_conversations(
         Conversation.user_id == current_user.id
     ).order_by(Conversation.updated_at.desc()).all()
     
-    return [
-        {
-            "id": conv.id,
-            "title": conv.title,
-            "created_at": conv.created_at,
-            "updated_at": conv.updated_at,
-            "message_count": len(conv.messages)
-        }
-        for conv in conversations
-    ]
+    return [serialize_conversation(conv) for conv in conversations]
 
 @app.get("/api/conversations/{conversation_id}/messages")
 async def get_conversation_messages(
@@ -677,16 +763,7 @@ async def get_conversation_messages(
         ChatMessage.conversation_id == conversation_id
     ).order_by(ChatMessage.created_at.asc()).all()
     
-    return [
-        {
-            "id": msg.id,
-            "role": msg.role,
-            "content": msg.content,
-            "metadata": msg.metadata,
-            "created_at": msg.created_at
-        }
-        for msg in messages
-    ]
+    return [serialize_chat_message(msg) for msg in messages]
 
 @app.get("/api/tags")
 async def get_tags(
@@ -701,7 +778,7 @@ async def get_tags(
             "id": tag.id,
             "name": tag.name,
             "color": tag.color,
-            "created_at": tag.created_at
+            "createdAt": tag.created_at
         }
         for tag in tags
     ]
@@ -713,8 +790,12 @@ async def agent_process_document(
     current_user: User = Depends(get_current_user)
 ):
     """Direct access to document processing agent."""
+    ag = get_agents()
+    if not ag:
+        return {"response": "AI processing unavailable", "agent": "DocumentProcessor"}
+    
     try:
-        response = agents.document_processor.run(
+        response = ag.document_processor.run(
             f"Process this content: {content.get('text', content.get('content', ''))}"
         )
         return {"response": response.content, "agent": "DocumentProcessor"}
@@ -727,8 +808,12 @@ async def agent_search(
     current_user: User = Depends(get_current_user)
 ):
     """Direct access to search agent."""
+    ag = get_agents()
+    if not ag:
+        return {"response": "AI search unavailable", "agent": "SearchAgent"}
+    
     try:
-        response = agents.search_agent.run(query.get('query', ''))
+        response = ag.search_agent.run(query.get('query', ''))
         return {"response": response.content, "agent": "SearchAgent"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent search failed: {str(e)}")
@@ -736,16 +821,19 @@ async def agent_search(
 if __name__ == "__main__":
     import uvicorn
     
+    port = int(os.getenv("PY_PORT", "8001"))
+    
     print("🚀 Starting KnowledgeVault Unified Backend")
     print("📊 Multi-Agent System: Integrated")
     print("🗄️  Database: PostgreSQL")
     print("🔐 Authentication: JWT-based")
-    print("🌐 API: http://localhost:5000")
-    print("📚 Docs: http://localhost:5000/docs")
+    print(f"🌐 API: http://localhost:{port}")
+    print(f"📚 Docs: http://localhost:{port}/docs")
+    dev = os.getenv("DEV", "0") == "1"
     
     uvicorn.run(
         "knowledge_vault_backend:app",
         host="0.0.0.0",
-        port=5000,  # Same port as Node.js app for seamless replacement
-        reload=True
+        port=port,
+        reload=dev
     )
