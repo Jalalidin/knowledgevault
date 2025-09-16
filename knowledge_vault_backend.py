@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 # Database
-from sqlalchemy import create_engine, Column, String, Text, Integer, Boolean, DateTime, JSON, ForeignKey, Table, Index
+from sqlalchemy import create_engine, Column, String, Text, Integer, Boolean, DateTime, JSON, ForeignKey, Table, Index, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship, declarative_base
 from sqlalchemy.sql import func
@@ -41,7 +41,7 @@ import httpx
 
 # Configuration
 class Settings(BaseSettings):
-    database_url: str = os.getenv("DATABASE_URL", "postgresql://localhost/knowledgevault")
+    database_url: str = os.getenv("DATABASE_URL", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     secret_key: str = os.getenv("JWT_SECRET_KEY", "dev-only-secret-key-not-for-production")
     algorithm: str = "HS256"
@@ -54,10 +54,59 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Database setup
-engine = create_engine(settings.database_url)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# Security hardening - check for insecure defaults in production
+if settings.environment != "development" and settings.secret_key == "dev-only-secret-key-not-for-production":
+    raise ValueError(
+        "🚨 SECURITY ERROR: Default JWT secret key detected in production environment! "
+        "Please set a secure JWT_SECRET_KEY environment variable."
+    )
+
+# Database setup with safe fallback
+def get_database_url() -> str:
+    """Get database URL with fallback for development environments."""
+    if settings.database_url:
+        return settings.database_url
+    
+    # Fallback to SQLite for development
+    if settings.environment == "development":
+        sqlite_path = Path(settings.upload_dir) / "knowledge_vault.db"
+        return f"sqlite:///{sqlite_path}"
+    
+    # In production, require explicit database configuration
+    raise ValueError(
+        "DATABASE_URL is required in production. "
+        "Please set the DATABASE_URL environment variable."
+    )
+
+# Initialize database engine safely
+def create_database_engine():
+    """Create database engine with appropriate configuration."""
+    database_url = get_database_url()
+    
+    if database_url.startswith("sqlite"):
+        # SQLite-specific configuration
+        engine = create_engine(
+            database_url,
+            connect_args={"check_same_thread": False}  # Required for SQLite with FastAPI
+        )
+    else:
+        # PostgreSQL or other database configuration
+        engine = create_engine(database_url)
+    
+    return engine
+
+try:
+    engine = create_database_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+    DATABASE_AVAILABLE = True
+except Exception as e:
+    print(f"Warning: Database initialization failed: {e}")
+    print("Starting in no-database mode. Some features will be unavailable.")
+    engine = None
+    SessionLocal = None
+    Base = None
+    DATABASE_AVAILABLE = False
 
 # Database Models (SQLAlchemy equivalent of Drizzle schema)
 
@@ -334,6 +383,13 @@ security = HTTPBearer()
 
 # Database dependency
 def get_db():
+    """Get database session with safe fallback."""
+    if not DATABASE_AVAILABLE or not SessionLocal:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable. Please check configuration."
+        )
+    
     db = SessionLocal()
     try:
         yield db
@@ -403,8 +459,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Create tables safely
+if DATABASE_AVAILABLE and engine and Base:
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not create database tables: {e}")
+        print("Database operations may be limited")
+else:
+    print("⚠️  Database not available - starting in limited mode")
 
 # Ensure upload directory exists
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
@@ -415,11 +479,24 @@ Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 async def health_check():
     """Health check endpoint."""
     ag = get_agents()
+    
+    # Check database status
+    db_status = "connected" if DATABASE_AVAILABLE else "unavailable"
+    if DATABASE_AVAILABLE:
+        try:
+            # Try to perform a simple database operation
+            db = SessionLocal()
+            db.execute(text("SELECT 1"))
+            db.close()
+        except Exception as e:
+            db_status = f"error: {str(e)}"
+    
     return {
         "status": "healthy",
         "version": "2.0.0",
         "agents_available": bool(ag),
-        "database": "connected"
+        "database": db_status,
+        "environment": settings.environment
     }
 
 @app.post("/api/auth/login")

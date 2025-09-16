@@ -1,5 +1,23 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Get API base URL from environment with fallback to Python backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+
+function getFullUrl(path: string): string {
+  // If path already has a protocol, return as-is
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  
+  // If path starts with /api, prepend the API base URL
+  if (path.startsWith("/api")) {
+    return `${API_BASE_URL}${path}`;
+  }
+  
+  // Otherwise, return the path as-is (for relative paths)
+  return path;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -12,7 +30,8 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const fullUrl = getFullUrl(url);
+  const res = await fetch(fullUrl, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -50,7 +69,8 @@ export const getQueryFn: <T>(options: {
       url = queryKey.join("/");
     }
 
-    const res = await fetch(url, {
+    const fullUrl = getFullUrl(url);
+    const res = await fetch(fullUrl, {
       credentials: "include",
     });
 
