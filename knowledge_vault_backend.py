@@ -452,8 +452,13 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5000"],
-    allow_origin_regex=r"https://.*\.replit\.app",
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:5000",
+        "https://1773c3a3-7def-4ce1-8f18-1acfba50ce6e-00-1erofpcnf6v0.spock.replit.dev",
+        "https://1773c3a3-7def-4ce1-8f18-1acfba50ce6e-00-1erofpcnf6v0.spock.replit.dev:5000"
+    ],
+    allow_origin_regex=r"https://.*\.replit\.dev(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

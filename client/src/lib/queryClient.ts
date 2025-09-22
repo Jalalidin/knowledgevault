@@ -1,7 +1,20 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 // Get API base URL from environment with fallback to Python backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8001";
+// In Replit environment, we need to use the full domain with port 8001
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl) return envUrl;
+  
+  // Check if we're in a Replit environment
+  if (typeof window !== 'undefined' && window.location.hostname.includes('.replit.dev')) {
+    return `${window.location.protocol}//${window.location.hostname}:8001`;
+  }
+  
+  return "http://localhost:8001";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 function getFullUrl(path: string): string {
   // If path already has a protocol, return as-is
