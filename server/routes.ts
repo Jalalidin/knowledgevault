@@ -77,7 +77,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const pythonBackendProxy = httpProxy.createProxyMiddleware({
     target: 'http://localhost:8001',
     changeOrigin: true,
+    pathRewrite: {
+      // Don't rewrite - preserve full path including /api/
+    },
+    logLevel: 'debug',
     onProxyReq: async (proxyReq, req: any) => {
+      console.log(`[PROXY] Forwarding: ${req.method} ${req.url} → ${proxyReq.path}`);
+      
       // Add JWT token to proxied requests if user is authenticated
       if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
         try {
@@ -88,27 +94,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
             { algorithm: 'HS256', expiresIn: '30m' }
           );
           proxyReq.setHeader('Authorization', `Bearer ${token}`);
+          console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
         } catch (error) {
           console.error('Error adding JWT token to proxy request:', error);
         }
       }
     },
     onError: (err, req, res) => {
-      console.error('Proxy error:', err);
+      console.error(`[PROXY] Error proxying ${req.method} ${req.url}:`, err);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Backend service unavailable' });
       }
     }
   });
 
-  // Apply proxy to all non-auth API routes
-  app.use('/api', (req, res, next) => {
-    // Skip auth routes - handle them directly in Node.js
-    if (req.path.startsWith('/auth/') || req.path === '/login' || req.path === '/logout' || req.path === '/callback') {
-      return next();
+  // Simple proxy for Python backend - preserve exact path
+  app.all('/api/knowledge-items*', async (req: any, res) => {
+    const targetUrl = `http://localhost:8001${req.path}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
+    console.log(`[PROXY] Forwarding: ${req.method} ${req.path} → ${targetUrl}`);
+    
+    try {
+      const headers: any = { ...req.headers };
+      delete headers.host; // Remove host header to avoid conflicts
+      
+      // Add JWT token if user is authenticated
+      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+        const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
+        const token = jwt.sign(
+          { sub: req.user.claims.sub },
+          secretKey,
+          { algorithm: 'HS256', expiresIn: '30m' }
+        );
+        headers.authorization = `Bearer ${token}`;
+        console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
+      }
+
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers,
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+      });
+
+      // Copy response headers
+      Object.entries(response.headers).forEach(([key, value]) => {
+        res.set(key, value as string);
+      });
+
+      res.status(response.status);
+      
+      const responseData = await response.text();
+      res.send(responseData);
+    } catch (error) {
+      console.error(`[PROXY] Error proxying request:`, error);
+      res.status(500).json({ error: 'Backend service unavailable' });
     }
-    // Forward all other API routes to Python backend
-    pythonBackendProxy(req, res, next);
+  });
+
+  // Upload endpoint proxy
+  app.all('/api/upload*', async (req: any, res) => {
+    const targetUrl = `http://localhost:8001${req.path}`;
+    console.log(`[PROXY] Forwarding upload: ${req.method} ${req.path} → ${targetUrl}`);
+    
+    try {
+      // Use the proxy middleware for multipart uploads
+      pythonBackendProxy(req, res, (err: any) => {
+        if (err) {
+          console.error('[PROXY] Upload proxy error:', err);
+          res.status(500).json({ error: 'Upload failed' });
+        }
+      });
+    } catch (error) {
+      console.error(`[PROXY] Error proxying upload:`, error);
+      res.status(500).json({ error: 'Upload service unavailable' });
+    }
   });
 
   // Object storage routes for private objects
@@ -147,132 +205,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Knowledge items routes
-  app.get("/api/knowledge-items", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
-      
-      const items = await storage.getKnowledgeItemsByUser(userId, limit, offset);
-      res.json(items);
-    } catch (error) {
-      console.error("Error fetching knowledge items:", error);
-      res.status(500).json({ error: "Failed to fetch knowledge items" });
-    }
-  });
+  // Knowledge items routes are now handled by Python backend proxy
 
-  app.get("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const item = await storage.getKnowledgeItem(req.params.id);
-      
-      if (!item || item.userId !== userId) {
-        return res.status(404).json({ error: "Knowledge item not found" });
-      }
-      
-      res.json(item);
-    } catch (error) {
-      console.error("Error fetching knowledge item:", error);
-      res.status(500).json({ error: "Failed to fetch knowledge item" });
-    }
-  });
+  // Knowledge items CRUD routes are now handled by Python backend proxy
 
-  app.post("/api/knowledge-items", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      
-      // Prepare metadata with thumbnail and enhanced info
-      let metadata = req.body.metadata || {};
-      
-      // If processedContent contains thumbnail or enhanced metadata, merge it
-      if (req.body.thumbnailUrl) {
-        metadata.thumbnailUrl = req.body.thumbnailUrl;
-      }
-      if (req.body.videoInfo) {
-        metadata = { ...metadata, ...req.body.videoInfo };
-      }
-      
-      // Normalize category if provided
-      let normalizedCategory = req.body.category;
-      if (normalizedCategory) {
-        normalizedCategory = await storage.normalizeCategory(userId, normalizedCategory);
-        // Store category in metadata since schema doesn't have direct category field
-        metadata.category = normalizedCategory;
-      }
-      
-      const itemData = insertKnowledgeItemSchema.parse({
-        ...req.body,
-        userId,
-        metadata: Object.keys(metadata).length > 0 ? metadata : null,
-      });
-
-      const item = await storage.createKnowledgeItem(itemData);
-      
-      // Add tags if provided
-      if (req.body.tags && Array.isArray(req.body.tags)) {
-        const tags = await storage.getOrCreateTags(userId, req.body.tags);
-        await storage.addTagsToKnowledgeItem(item.id, tags.map(t => t.id));
-      }
-
-      const itemWithTags = await storage.getKnowledgeItem(item.id);
-      res.json(itemWithTags);
-    } catch (error) {
-      console.error("Error creating knowledge item:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to create knowledge item" });
-    }
-  });
-
-  app.put("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const item = await storage.getKnowledgeItem(req.params.id);
-      
-      if (!item || item.userId !== userId) {
-        return res.status(404).json({ error: "Knowledge item not found" });
-      }
-
-      const updates = insertKnowledgeItemSchema.partial().parse(req.body);
-      const updatedItem = await storage.updateKnowledgeItem(req.params.id, updates);
-      
-      if (!updatedItem) {
-        return res.status(404).json({ error: "Knowledge item not found" });
-      }
-
-      res.json(updatedItem);
-    } catch (error) {
-      console.error("Error updating knowledge item:", error);
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Invalid data", details: error.errors });
-      }
-      res.status(500).json({ error: "Failed to update knowledge item" });
-    }
-  });
-
-  app.delete("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const item = await storage.getKnowledgeItem(req.params.id);
-      
-      if (!item || item.userId !== userId) {
-        return res.status(404).json({ error: "Knowledge item not found" });
-      }
-
-      const deleted = await storage.deleteKnowledgeItem(req.params.id);
-      
-      if (!deleted) {
-        return res.status(404).json({ error: "Knowledge item not found" });
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting knowledge item:", error);
-      res.status(500).json({ error: "Failed to delete knowledge item" });
-    }
-  });
+  // DELETE endpoint also handled by Python backend proxy
 
   // Filter-based search (database search)
   app.get("/api/search-filter", isAuthenticated, async (req: any, res) => {
