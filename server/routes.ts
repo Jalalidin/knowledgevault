@@ -23,6 +23,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import jwt from "jsonwebtoken";
+import httpProxy from "http-proxy-middleware";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -70,6 +71,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error generating JWT token:", error);
       res.status(500).json({ message: "Failed to generate token" });
     }
+  });
+
+  // Python backend proxy - forward all non-auth API calls to Python backend
+  const pythonBackendProxy = httpProxy.createProxyMiddleware({
+    target: 'http://localhost:8001',
+    changeOrigin: true,
+    onProxyReq: async (proxyReq, req: any) => {
+      // Add JWT token to proxied requests if user is authenticated
+      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+        try {
+          const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
+          const token = jwt.sign(
+            { sub: req.user.claims.sub },
+            secretKey,
+            { algorithm: 'HS256', expiresIn: '30m' }
+          );
+          proxyReq.setHeader('Authorization', `Bearer ${token}`);
+        } catch (error) {
+          console.error('Error adding JWT token to proxy request:', error);
+        }
+      }
+    },
+    onError: (err, req, res) => {
+      console.error('Proxy error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Backend service unavailable' });
+      }
+    }
+  });
+
+  // Apply proxy to all non-auth API routes
+  app.use('/api', (req, res, next) => {
+    // Skip auth routes - handle them directly in Node.js
+    if (req.path.startsWith('/auth/') || req.path === '/login' || req.path === '/logout' || req.path === '/callback') {
+      return next();
+    }
+    // Forward all other API routes to Python backend
+    pythonBackendProxy(req, res, next);
   });
 
   // Object storage routes for private objects

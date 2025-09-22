@@ -32,21 +32,8 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
-// Get API base URL from environment with fallback to Python backend
-// In Replit environment, we need to use the full domain with port 8001
-const getApiBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl) return envUrl;
-  
-  // Check if we're in a Replit environment
-  if (typeof window !== 'undefined' && window.location.hostname.includes('.replit.dev')) {
-    return `${window.location.protocol}//${window.location.hostname}:8001`;
-  }
-  
-  return "http://localhost:8001";
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// All API calls will go through Node.js (same origin) which will proxy to Python backend
+const API_BASE_URL = ""; // Empty string means same-origin requests
 
 function getFullUrl(path: string): string {
   // If path already has a protocol, return as-is
@@ -54,14 +41,10 @@ function getFullUrl(path: string): string {
     return path;
   }
   
-  // Authentication routes should go through Node.js frontend (same-origin)
-  if (path.startsWith("/api/auth") || path.startsWith("/api/login") || path.startsWith("/api/logout") || path.startsWith("/api/callback")) {
-    return path; // Same-origin request to Node.js
-  }
-  
-  // All other /api routes go to Python backend
+  // All /api routes now go through Node.js (same-origin)
+  // Node.js will proxy non-auth routes to Python backend
   if (path.startsWith("/api")) {
-    return `${API_BASE_URL}${path}`;
+    return path; // Same-origin request
   }
   
   // Otherwise, return the path as-is (for relative paths)
@@ -151,6 +134,7 @@ export const getQueryFn: <T>(options: {
         headers.Authorization = `Bearer ${token}`;
       }
     }
+
 
     const res = await fetch(fullUrl, {
       headers,
