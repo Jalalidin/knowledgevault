@@ -22,6 +22,7 @@ import { z } from "zod";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import jwt from "jsonwebtoken";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -56,7 +57,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create a JWT token compatible with Python backend
-      const jwt = require('jsonwebtoken');
       const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
       
       const token = jwt.sign(
