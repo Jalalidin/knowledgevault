@@ -47,6 +47,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // JWT bridge for Python backend
+  app.get('/api/auth/token', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "No user ID found" });
+      }
+      
+      // Create a JWT token compatible with Python backend
+      const jwt = require('jsonwebtoken');
+      const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
+      
+      const token = jwt.sign(
+        { sub: userId },
+        secretKey,
+        { algorithm: 'HS256', expiresIn: '30m' }
+      );
+      
+      res.json({ access_token: token, token_type: "bearer" });
+    } catch (error) {
+      console.error("Error generating JWT token:", error);
+      res.status(500).json({ message: "Failed to generate token" });
+    }
+  });
+
   // Object storage routes for private objects
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
     const userId = req.user?.claims?.sub;

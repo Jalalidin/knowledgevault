@@ -1,5 +1,37 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Token management
+let cachedToken: string | null = null;
+let tokenExpiration: number = 0;
+
+async function getAuthToken(): Promise<string | null> {
+  // Check if we have a valid cached token
+  if (cachedToken && Date.now() < tokenExpiration) {
+    return cachedToken;
+  }
+
+  try {
+    // Get JWT token from Node.js bridge
+    const response = await fetch('/api/auth/token', {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get auth token');
+    }
+    
+    const data = await response.json();
+    cachedToken = data.access_token;
+    // Set expiration slightly before actual expiration (25 minutes instead of 30)
+    tokenExpiration = Date.now() + (25 * 60 * 1000); 
+    
+    return cachedToken;
+  } catch (error) {
+    console.log('No auth token available:', error);
+    return null;
+  }
+}
+
 // Get API base URL from environment with fallback to Python backend
 // In Replit environment, we need to use the full domain with port 8001
 const getApiBaseUrl = () => {
@@ -22,7 +54,12 @@ function getFullUrl(path: string): string {
     return path;
   }
   
-  // If path starts with /api, prepend the API base URL
+  // Authentication routes should go through Node.js frontend (same-origin)
+  if (path.startsWith("/api/auth") || path.startsWith("/api/login") || path.startsWith("/api/logout") || path.startsWith("/api/callback")) {
+    return path; // Same-origin request to Node.js
+  }
+  
+  // All other /api routes go to Python backend
   if (path.startsWith("/api")) {
     return `${API_BASE_URL}${path}`;
   }
@@ -44,9 +81,25 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const fullUrl = getFullUrl(url);
+  
+  // Determine if we need to add auth token (for Python backend requests)
+  const needsToken = !url.startsWith("/api/auth") && !url.startsWith("/api/login") && 
+                     !url.startsWith("/api/logout") && !url.startsWith("/api/callback") && 
+                     url.startsWith("/api");
+  
+  const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+  
+  // Add JWT token for Python backend requests
+  if (needsToken) {
+    const token = await getAuthToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
   const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -83,7 +136,24 @@ export const getQueryFn: <T>(options: {
     }
 
     const fullUrl = getFullUrl(url);
+    
+    // Determine if we need to add auth token (for Python backend requests)
+    const needsToken = !url.startsWith("/api/auth") && !url.startsWith("/api/login") && 
+                       !url.startsWith("/api/logout") && !url.startsWith("/api/callback") && 
+                       url.startsWith("/api");
+    
+    const headers: Record<string, string> = {};
+    
+    // Add JWT token for Python backend requests
+    if (needsToken) {
+      const token = await getAuthToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+
     const res = await fetch(fullUrl, {
+      headers,
       credentials: "include",
     });
 
