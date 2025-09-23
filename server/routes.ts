@@ -150,22 +150,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload endpoint proxy
-  app.all('/api/upload*', async (req: any, res) => {
-    const targetUrl = `http://localhost:8001${req.path}`;
-    console.log(`[PROXY] Forwarding upload: ${req.method} ${req.path} → ${targetUrl}`);
+  // Upload endpoint proxy - handle multipart uploads with proper JWT
+  app.post('/api/upload', isAuthenticated, async (req: any, res) => {
+    console.log(`[PROXY] Forwarding authenticated upload: ${req.method} ${req.path}`);
+    console.log(`[PROXY] User object:`, req.user ? 'exists' : 'missing');
+    console.log(`[PROXY] User claims:`, req.user?.claims ? 'exists' : 'missing');
+    console.log(`[PROXY] User ID:`, req.user?.claims?.sub || req.user?.id || 'unknown');
     
     try {
-      // Use the proxy middleware for multipart uploads
-      pythonBackendProxy(req, res, (err: any) => {
-        if (err) {
-          console.error('[PROXY] Upload proxy error:', err);
-          res.status(500).json({ error: 'Upload failed' });
+      // Check different possible user ID locations
+      const userId = req.user?.claims?.sub || req.user?.sub || req.user?.id;
+      
+      if (!userId) {
+        console.error('[PROXY] No user ID found in request');
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+      
+      // Add JWT token for authenticated user
+      const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
+      const token = jwt.sign(
+        { sub: userId },
+        secretKey,
+        { algorithm: 'HS256', expiresIn: '30m' }
+      );
+      
+      console.log(`[PROXY] Added JWT token for upload by user ${userId}`);
+      
+      // Forward to Python backend with modified proxy that adds auth header
+      const uploadProxy = httpProxy.createProxyMiddleware({
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        onProxyReq: (proxyReq) => {
+          proxyReq.setHeader('Authorization', `Bearer ${token}`);
+          console.log(`[PROXY] Set Authorization header for upload with token`);
+        },
+        onError: (err, req, res) => {
+          console.error(`[PROXY] Upload proxy error:`, err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Upload service unavailable' });
+          }
         }
       });
+      
+      uploadProxy(req, res);
     } catch (error) {
-      console.error(`[PROXY] Error proxying upload:`, error);
-      res.status(500).json({ error: 'Upload service unavailable' });
+      console.error(`[PROXY] Error setting up upload proxy:`, error);
+      res.status(500).json({ error: 'Upload failed' });
     }
   });
 
@@ -202,6 +232,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // General proxy for all remaining /api/* routes to Python backend
+  app.all('/api/*', isAuthenticated, async (req: any, res) => {
+    const targetUrl = `http://localhost:8001${req.path}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
+    console.log(`[PROXY] Forwarding general API: ${req.method} ${req.path} → ${targetUrl}`);
+    
+    try {
+      const headers: any = { ...req.headers };
+      delete headers.host; // Remove host header to avoid conflicts
+      headers['content-type'] = 'application/json'; // Ensure JSON content type
+      
+      // Add JWT token if user is authenticated
+      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+        const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
+        const token = jwt.sign(
+          { sub: req.user.claims.sub },
+          secretKey,
+          { algorithm: 'HS256', expiresIn: '30m' }
+        );
+        headers.authorization = `Bearer ${token}`;
+        console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
+      }
+
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers,
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+      });
+
+      // Copy response headers
+      Object.entries(response.headers).forEach(([key, value]) => {
+        res.set(key, value as string);
+      });
+
+      res.status(response.status);
+      
+      const responseData = await response.text();
+      res.send(responseData);
+    } catch (error) {
+      console.error(`[PROXY] Error proxying general API request:`, error);
+      res.status(500).json({ error: 'Backend service unavailable' });
     }
   });
 
@@ -391,56 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process text content and create knowledge item
-  app.post("/api/process-text", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { content } = req.body;
-      
-      if (!content || typeof content !== "string") {
-        return res.status(400).json({ error: "Content is required" });
-      }
-
-      // Process the text content with AI
-      const processedContent = await processTextContent(content);
-      
-      // Create a knowledge item with the processed content
-      const knowledgeItemData = insertKnowledgeItemSchema.parse({
-        userId,
-        title: processedContent.title || content.substring(0, 50).trim() + (content.length > 50 ? '...' : ''),
-        type: 'text',
-        content,
-        summary: processedContent.summary,
-        isProcessed: true,
-        metadata: {
-          processedAt: new Date().toISOString(),
-          wordCount: content.split(/\s+/).length,
-          contentLength: content.length,
-        }
-      });
-      
-      const knowledgeItem = await storage.createKnowledgeItem(knowledgeItemData);
-      
-      // Add tags if generated
-      if (processedContent.tags && processedContent.tags.length > 0) {
-        for (const tagName of processedContent.tags) {
-          try {
-            await storage.addTagToKnowledgeItem(knowledgeItem.id, tagName, userId);
-          } catch (error) {
-            console.error("Error adding tag:", error);
-            // Continue even if tag addition fails
-          }
-        }
-      }
-      
-      // Return the created knowledge item
-      const itemWithTags = await storage.getKnowledgeItem(knowledgeItem.id);
-      res.json(itemWithTags);
-    } catch (error) {
-      console.error("Error processing text:", error);
-      res.status(500).json({ error: "Failed to process text" });
-    }
-  });
+  // Process text content route - now handled by Python backend proxy
 
   // Process image content with Gemini AI  
   app.post("/api/process-image", isAuthenticated, async (req: any, res) => {

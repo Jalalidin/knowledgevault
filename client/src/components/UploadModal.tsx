@@ -128,7 +128,13 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
 
     setIsProcessing(true);
     try {
-      const { processedContent } = await processTextMutation.mutateAsync(textContent);
+      console.log("Starting text processing...", { textContent: textContent.substring(0, 100) });
+      
+      const response = await processTextMutation.mutateAsync(textContent);
+      console.log("Text processing response:", response);
+      
+      const { processedContent } = response;
+      console.log("Extracted processedContent:", processedContent);
       
       const knowledgeItemData = {
         ...processedContent,
@@ -138,6 +144,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
         tags: processedContent.tags,
       };
 
+      console.log("Creating knowledge item with data:", knowledgeItemData);
       await createKnowledgeItemMutation.mutateAsync(knowledgeItemData);
       
       toast({
@@ -145,6 +152,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
         description: "Your text has been processed and added to your knowledge base.",
       });
     } catch (error) {
+      console.error("Text processing error:", error);
       toast({
         title: "Processing failed",
         description: "Failed to process text content.",

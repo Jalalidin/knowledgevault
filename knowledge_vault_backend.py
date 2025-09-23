@@ -865,6 +865,83 @@ async def get_tags(
         for tag in tags
     ]
 
+# Text processing endpoint for frontend compatibility
+@app.post("/api/process-text")
+async def process_text(
+    request: Dict[str, str],
+    current_user: User = Depends(get_current_user)
+):
+    """Process text content using AI agents - frontend compatibility endpoint."""
+    content = request.get("content", "")
+    
+    if not content:
+        raise HTTPException(status_code=400, detail="Content is required")
+    
+    ag = get_agents()
+    if not ag:
+        raise HTTPException(status_code=500, detail="AI processing unavailable")
+    
+    try:
+        # Use document processor agent to analyze the text
+        analysis_prompt = f"""Analyze this text content and provide structured metadata:
+
+Content: {content}
+
+Provide a JSON response with:
+1. title: A descriptive title
+2. summary: A concise summary  
+3. tags: Array of relevant tags
+4. category: Content category
+
+Format as valid JSON."""
+        
+        response = ag.document_processor.run(analysis_prompt)
+        
+        # Try to parse JSON response or provide defaults
+        try:
+            import json
+            # Extract JSON from response if it contains other text
+            response_text = response.content
+            if "{" in response_text and "}" in response_text:
+                start = response_text.find("{")
+                end = response_text.rfind("}") + 1
+                json_str = response_text[start:end]
+                processed_data = json.loads(json_str)
+            else:
+                # Fallback if no JSON found
+                processed_data = {
+                    "title": content[:50] + "..." if len(content) > 50 else content,
+                    "summary": "AI-processed content",
+                    "tags": ["processed"],
+                    "category": "text"
+                }
+        except:
+            # Fallback parsing if JSON fails
+            processed_data = {
+                "title": content[:50] + "..." if len(content) > 50 else content,
+                "summary": "AI-processed content", 
+                "tags": ["processed"],
+                "category": "text"
+            }
+        
+        return {
+            "processedContent": {
+                "title": processed_data.get("title", content[:50]),
+                "summary": processed_data.get("summary", ""),
+                "tags": processed_data.get("tags", []),
+                "category": processed_data.get("category", "text"),
+                "metadata": {
+                    "processedAt": datetime.now().isoformat(),
+                    "wordCount": len(content.split()),
+                    "contentLength": len(content)
+                }
+            }
+        }
+        
+    except Exception as e:
+        print(f"Text processing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process text: {str(e)}")
+
 # Direct agent endpoints (for testing/advanced usage)
 @app.post("/api/agents/process-document")
 async def agent_process_document(
