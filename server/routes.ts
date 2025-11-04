@@ -16,14 +16,11 @@ import {
   processLinkContent,
 } from "./gemini";
 import { insertKnowledgeItemSchema, insertConversationSchema, insertChatMessageSchema } from "@shared/schema";
-import wechatRoutes from "./wechat-routes";
 import { aiService } from "./ai-service";
 import { z } from "zod";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import jwt from "jsonwebtoken";
-import httpProxy from "http-proxy-middleware";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -46,156 +43,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // JWT bridge for Python backend
-  app.get('/api/auth/token', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      if (!userId) {
-        return res.status(401).json({ error: "No user ID found" });
-      }
-      
-      // Create a JWT token compatible with Python backend
-      const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
-      
-      const token = jwt.sign(
-        { sub: userId },
-        secretKey,
-        { algorithm: 'HS256', expiresIn: '30m' }
-      );
-      
-      res.json({ access_token: token, token_type: "bearer" });
-    } catch (error) {
-      console.error("Error generating JWT token:", error);
-      res.status(500).json({ message: "Failed to generate token" });
-    }
-  });
-
-  // Python backend proxy - forward all non-auth API calls to Python backend
-  const pythonBackendProxy = httpProxy.createProxyMiddleware({
-    target: 'http://localhost:8001',
-    changeOrigin: true,
-    pathRewrite: {
-      // Don't rewrite - preserve full path including /api/
-    },
-    logLevel: 'debug',
-    onProxyReq: async (proxyReq, req: any) => {
-      console.log(`[PROXY] Forwarding: ${req.method} ${req.url} → ${proxyReq.path}`);
-      
-      // Add JWT token to proxied requests if user is authenticated
-      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-        try {
-          const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
-          const token = jwt.sign(
-            { sub: req.user.claims.sub },
-            secretKey,
-            { algorithm: 'HS256', expiresIn: '30m' }
-          );
-          proxyReq.setHeader('Authorization', `Bearer ${token}`);
-          console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
-        } catch (error) {
-          console.error('Error adding JWT token to proxy request:', error);
-        }
-      }
-    },
-    onError: (err, req, res) => {
-      console.error(`[PROXY] Error proxying ${req.method} ${req.url}:`, err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Backend service unavailable' });
-      }
-    }
-  });
-
-  // Simple proxy for Python backend - preserve exact path
-  app.all('/api/knowledge-items*', async (req: any, res) => {
-    const targetUrl = `http://localhost:8001${req.path}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
-    console.log(`[PROXY] Forwarding: ${req.method} ${req.path} → ${targetUrl}`);
-    
-    try {
-      const headers: any = { ...req.headers };
-      delete headers.host; // Remove host header to avoid conflicts
-      
-      // Add JWT token if user is authenticated
-      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-        const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
-        const token = jwt.sign(
-          { sub: req.user.claims.sub },
-          secretKey,
-          { algorithm: 'HS256', expiresIn: '30m' }
-        );
-        headers.authorization = `Bearer ${token}`;
-        console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
-      }
-
-      const response = await fetch(targetUrl, {
-        method: req.method,
-        headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-      });
-
-      // Copy response headers
-      Object.entries(response.headers).forEach(([key, value]) => {
-        res.set(key, value as string);
-      });
-
-      res.status(response.status);
-      
-      const responseData = await response.text();
-      res.send(responseData);
-    } catch (error) {
-      console.error(`[PROXY] Error proxying request:`, error);
-      res.status(500).json({ error: 'Backend service unavailable' });
-    }
-  });
-
-  // Upload endpoint proxy - handle multipart uploads with proper JWT
-  app.post('/api/upload', isAuthenticated, async (req: any, res) => {
-    console.log(`[PROXY] Forwarding authenticated upload: ${req.method} ${req.path}`);
-    console.log(`[PROXY] User object:`, req.user ? 'exists' : 'missing');
-    console.log(`[PROXY] User claims:`, req.user?.claims ? 'exists' : 'missing');
-    console.log(`[PROXY] User ID:`, req.user?.claims?.sub || req.user?.id || 'unknown');
-    
-    try {
-      // Check different possible user ID locations
-      const userId = req.user?.claims?.sub || req.user?.sub || req.user?.id;
-      
-      if (!userId) {
-        console.error('[PROXY] No user ID found in request');
-        return res.status(401).json({ error: 'User not authenticated' });
-      }
-      
-      // Add JWT token for authenticated user
-      const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
-      const token = jwt.sign(
-        { sub: userId },
-        secretKey,
-        { algorithm: 'HS256', expiresIn: '30m' }
-      );
-      
-      console.log(`[PROXY] Added JWT token for upload by user ${userId}`);
-      
-      // Forward to Python backend with modified proxy that adds auth header
-      const uploadProxy = httpProxy.createProxyMiddleware({
-        target: 'http://localhost:8001',
-        changeOrigin: true,
-        onProxyReq: (proxyReq) => {
-          proxyReq.setHeader('Authorization', `Bearer ${token}`);
-          console.log(`[PROXY] Set Authorization header for upload with token`);
-        },
-        onError: (err, req, res) => {
-          console.error(`[PROXY] Upload proxy error:`, err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Upload service unavailable' });
-          }
-        }
-      });
-      
-      uploadProxy(req, res);
-    } catch (error) {
-      console.error(`[PROXY] Error setting up upload proxy:`, error);
-      res.status(500).json({ error: 'Upload failed' });
     }
   });
 
@@ -235,54 +82,132 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // General proxy for all remaining /api/* routes to Python backend
-  app.all('/api/*', isAuthenticated, async (req: any, res) => {
-    const targetUrl = `http://localhost:8001${req.path}${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`;
-    console.log(`[PROXY] Forwarding general API: ${req.method} ${req.path} → ${targetUrl}`);
-    
+  // Knowledge items routes
+  app.get("/api/knowledge-items", isAuthenticated, async (req: any, res) => {
     try {
-      const headers: any = { ...req.headers };
-      delete headers.host; // Remove host header to avoid conflicts
-      headers['content-type'] = 'application/json'; // Ensure JSON content type
+      const userId = req.user.claims.sub;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
       
-      // Add JWT token if user is authenticated
-      if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
-        const secretKey = process.env.JWT_SECRET_KEY || 'dev-only-secret-key-not-for-production';
-        const token = jwt.sign(
-          { sub: req.user.claims.sub },
-          secretKey,
-          { algorithm: 'HS256', expiresIn: '30m' }
-        );
-        headers.authorization = `Bearer ${token}`;
-        console.log(`[PROXY] Added JWT token for user ${req.user.claims.sub}`);
-      }
-
-      const response = await fetch(targetUrl, {
-        method: req.method,
-        headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-      });
-
-      // Copy response headers
-      Object.entries(response.headers).forEach(([key, value]) => {
-        res.set(key, value as string);
-      });
-
-      res.status(response.status);
-      
-      const responseData = await response.text();
-      res.send(responseData);
+      const items = await storage.getKnowledgeItemsByUser(userId, limit, offset);
+      res.json(items);
     } catch (error) {
-      console.error(`[PROXY] Error proxying general API request:`, error);
-      res.status(500).json({ error: 'Backend service unavailable' });
+      console.error("Error fetching knowledge items:", error);
+      res.status(500).json({ error: "Failed to fetch knowledge items" });
     }
   });
 
-  // Knowledge items routes are now handled by Python backend proxy
+  app.get("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const item = await storage.getKnowledgeItem(req.params.id);
+      
+      if (!item || item.userId !== userId) {
+        return res.status(404).json({ error: "Knowledge item not found" });
+      }
+      
+      res.json(item);
+    } catch (error) {
+      console.error("Error fetching knowledge item:", error);
+      res.status(500).json({ error: "Failed to fetch knowledge item" });
+    }
+  });
 
-  // Knowledge items CRUD routes are now handled by Python backend proxy
+  app.post("/api/knowledge-items", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Prepare metadata with thumbnail and enhanced info
+      let metadata = req.body.metadata || {};
+      
+      // If processedContent contains thumbnail or enhanced metadata, merge it
+      if (req.body.thumbnailUrl) {
+        metadata.thumbnailUrl = req.body.thumbnailUrl;
+      }
+      if (req.body.videoInfo) {
+        metadata = { ...metadata, ...req.body.videoInfo };
+      }
+      
+      // Normalize category if provided
+      let normalizedCategory = req.body.category;
+      if (normalizedCategory) {
+        normalizedCategory = await storage.normalizeCategory(userId, normalizedCategory);
+        // Store category in metadata since schema doesn't have direct category field
+        metadata.category = normalizedCategory;
+      }
+      
+      const itemData = insertKnowledgeItemSchema.parse({
+        ...req.body,
+        userId,
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+      });
 
-  // DELETE endpoint also handled by Python backend proxy
+      const item = await storage.createKnowledgeItem(itemData);
+      
+      // Add tags if provided
+      if (req.body.tags && Array.isArray(req.body.tags)) {
+        const tags = await storage.getOrCreateTags(userId, req.body.tags);
+        await storage.addTagsToKnowledgeItem(item.id, tags.map(t => t.id));
+      }
+
+      const itemWithTags = await storage.getKnowledgeItem(item.id);
+      res.json(itemWithTags);
+    } catch (error) {
+      console.error("Error creating knowledge item:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create knowledge item" });
+    }
+  });
+
+  app.put("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const item = await storage.getKnowledgeItem(req.params.id);
+      
+      if (!item || item.userId !== userId) {
+        return res.status(404).json({ error: "Knowledge item not found" });
+      }
+
+      const updates = insertKnowledgeItemSchema.partial().parse(req.body);
+      const updatedItem = await storage.updateKnowledgeItem(req.params.id, updates);
+      
+      if (!updatedItem) {
+        return res.status(404).json({ error: "Knowledge item not found" });
+      }
+
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating knowledge item:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update knowledge item" });
+    }
+  });
+
+  app.delete("/api/knowledge-items/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const item = await storage.getKnowledgeItem(req.params.id);
+      
+      if (!item || item.userId !== userId) {
+        return res.status(404).json({ error: "Knowledge item not found" });
+      }
+
+      const deleted = await storage.deleteKnowledgeItem(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Knowledge item not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting knowledge item:", error);
+      res.status(500).json({ error: "Failed to delete knowledge item" });
+    }
+  });
 
   // Filter-based search (database search)
   app.get("/api/search-filter", isAuthenticated, async (req: any, res) => {
@@ -464,7 +389,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Process text content route - now handled by Python backend proxy
+  // Process text content
+  app.post("/api/process-text", isAuthenticated, async (req: any, res) => {
+    try {
+      const { content } = req.body;
+      
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      const processedContent = await processTextContent(content);
+      res.json({ processedContent });
+    } catch (error) {
+      console.error("Error processing text:", error);
+      res.status(500).json({ error: "Failed to process text" });
+    }
+  });
 
   // Process image content with Gemini AI  
   app.post("/api/process-image", isAuthenticated, async (req: any, res) => {
@@ -662,7 +602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { id: conversationId } = req.params;
-      const { content, model, provider, temperature, selectedItems } = req.body;
+      const { content } = req.body;
       
       if (!content || typeof content !== "string") {
         return res.status(400).json({ error: "Message content is required" });
@@ -698,22 +638,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user's AI settings
       const userSettings = await storage.getUserAiSettings(userId);
       
-      // Get relevant knowledge items - either selected ones or search results
-      let relevantItems;
-      if (selectedItems && selectedItems.length > 0) {
-        // Use specifically selected items
-        relevantItems = [];
-        for (const itemId of selectedItems) {
-          const item = await storage.getKnowledgeItem(itemId);
-          if (item && item.userId === userId) {
-            relevantItems.push(item);
-          }
-        }
-      } else {
-        // Search for relevant items
-        const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
-        relevantItems = await searchKnowledgeBase(content, allItems);
-      }
+      // Retrieve relevant knowledge items
+      const allItems = await storage.getKnowledgeItemsByUser(userId, 1000);
+      const relevantItems = await searchKnowledgeBase(content, allItems);
       
       // Send sources info
       res.write(`data: ${JSON.stringify({ 
@@ -727,22 +654,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let fullResponse = '';
       
-      // Override AI settings if provided in request
-      const effectiveSettings = userSettings ? {
-        ...userSettings,
-        preferredProvider: provider || userSettings.preferredProvider || 'gemini',
-        preferredModel: model || userSettings.preferredModel || 'gemini-2.5-flash',
-        chatSettings: {
-          ...(userSettings.chatSettings || {}),
-          temperature: temperature !== undefined ? temperature : (userSettings.chatSettings as any)?.temperature || 0.7
-        }
-      } : undefined;
-      
       // Generate AI response using RAG with streaming
       const ragResponse = await aiService.generateRagResponseStream(
         content,
         relevantItems,
-        effectiveSettings,
+        userSettings || undefined,
         (chunk: string) => {
           fullResponse += chunk;
           res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
@@ -947,9 +863,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch AI models" });
     }
   });
-
-  // WeChat integration routes
-  app.use("/api/wechat", wechatRoutes);
 
   const httpServer = createServer(app);
   return httpServer;

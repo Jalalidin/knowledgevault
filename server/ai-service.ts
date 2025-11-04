@@ -142,17 +142,16 @@ export class OpenAIProvider implements AiProvider {
         messages: [
           {
             role: "system",
-            content: `You are a helpful AI assistant with access to the user's personal knowledge base. You can respond in any language the user prefers and handle both general conversation and knowledge-specific queries.
+            content: `You are a knowledgeable AI assistant helping users understand their personal knowledge base. Use the provided context to answer questions accurately and comprehensively.
 
-GUIDELINES:
-- For general questions, greetings, or basic conversations: Use your general knowledge and be naturally conversational
-- For questions about the user's specific knowledge, documents, or personal information: Use the provided context from their knowledge base
-- You can communicate in any language the user chooses
-- Be helpful, friendly, and adaptive to the user's communication style
-- When using knowledge base context, cite sources when relevant
-- If the user asks about their specific knowledge but the context doesn't have enough information, explain that limitation
+IMPORTANT INSTRUCTIONS:
+- Base your answers primarily on the provided context
+- If the context doesn't contain enough information, clearly state this
+- Be conversational and helpful
+- Cite specific sources when possible
+- If asked about something not in the context, politely explain the limitation
 
-User's Knowledge Base Context:
+Context from knowledge base:
 ${context}`
           },
           {
@@ -186,17 +185,16 @@ ${context}`
         messages: [
           {
             role: "system",
-            content: `You are a helpful AI assistant with access to the user's personal knowledge base. You can respond in any language the user prefers and handle both general conversation and knowledge-specific queries.
+            content: `You are a knowledgeable AI assistant helping users understand their personal knowledge base. Use the provided context to answer questions accurately and comprehensively.
 
-GUIDELINES:
-- For general questions, greetings, or basic conversations: Use your general knowledge and be naturally conversational
-- For questions about the user's specific knowledge, documents, or personal information: Use the provided context from their knowledge base
-- You can communicate in any language the user chooses
-- Be helpful, friendly, and adaptive to the user's communication style
-- When using knowledge base context, cite sources when relevant
-- If the user asks about their specific knowledge but the context doesn't have enough information, explain that limitation
+IMPORTANT INSTRUCTIONS:
+- Base your answers primarily on the provided context
+- If the context doesn't contain enough information, clearly state this
+- Be conversational and helpful
+- Cite specific sources when possible
+- If asked about something not in the context, politely explain the limitation
 
-User's Knowledge Base Context:
+Context from knowledge base:
 ${context}`
           },
           {
@@ -365,40 +363,7 @@ ${item.content ? `Content: ${item.content.slice(0, 500)}${item.content.length > 
   getSupportedProviders(): string[] {
     return ["gemini", "openai"];
   }
-  // Generate summary for text content
-  async generateSummary(content: string): Promise<string> {
-    const provider = this.getProvider("gemini");
-    const prompt = `Please provide a brief, concise summary of the following text in 1-2 sentences:\n\n${content}`;
-    return await provider.generateResponse(prompt, "", { model: "gemini-2.5-flash" });
-  }
-
-  // Generate title for content
-  async generateTitle(content: string): Promise<string> {
-    const provider = this.getProvider("gemini");
-    const prompt = `Generate a short, descriptive title (max 50 characters) for the following content:\n\n${content}`;
-    const title = await provider.generateResponse(prompt, "", { model: "gemini-2.5-flash" });
-    return title.length > 50 ? title.substring(0, 50).trim() + "..." : title;
-  }
-
-  // Analyze image from URL
-  async analyzeImageFromUrl(imageUrl: string): Promise<{ title: string; description: string }> {
-    // For now, return placeholder analysis since we'd need to download and process the image
-    // In a full implementation, you'd download the image and use Gemini's vision capabilities
-    return {
-      title: "Image from WeChat",
-      description: "Image shared via WeChat (detailed analysis not available)"
-    };
-  }
-
-  // Process web link content
-  async processWebLink(url: string): Promise<{ content: string; summary: string }> {
-    // For now, return placeholder processing
-    // In a full implementation, you'd fetch the URL content and process it
-    return {
-      content: `Web link: ${url}`,
-      summary: "Link shared via WeChat (content extraction not available)"
-    };
-  }
 }
 
+// Export singleton instance
 export const aiService = new AiService();
